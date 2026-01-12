@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinControl Pro - Sistema de Controle Financeiro</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <div class="loader"></div>
+        <p>Carregando FinControl Pro...</p>
+    </div>
+
+    <!-- Login Page -->
+    <div id="login-page" class="page-container">
+        <div class="auth-background">
+            <div class="background-decoration"></div>
+            <div class="background-decoration-2"></div>
+        </div>
+        
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="app-icon">
+                    <i class="fas fa-wallet"></i>
+                </div>
+                <h1 class="app-title">FinControl Pro</h1>
+                <p class="app-subtitle">Controle financeiro inteligente</p>
+            </div>
+
+            <form id="login-form" class="auth-form">
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" placeholder="seu@email.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="login-password">Senha</label>
+                    <input type="password" id="login-password" placeholder="••••••••" required>
+                </div>
+
+                <div id="login-error" class="alert alert-error hidden"></div>
+                <div id="login-success" class="alert alert-success hidden"></div>
+
+                <button type="submit" class="btn btn-primary btn-full">Entrar</button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Não tem uma conta?</p>
+                <button id="show-register" class="link-button">Criar conta gratuita →</button>
+            </div>
+
+            <div class="auth-security">
+                <p>Seus dados estão seguros e criptografados</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Page -->
+    <div id="register-page" class="page-container hidden">
+        <div class="auth-background register-bg">
+            <div class="background-decoration"></div>
+            <div class="background-decoration-2"></div>
+        </div>
+        
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="app-icon register-icon">
+                    <i class="fas fa-user"></i>
+                </div>
+                <h1 class="app-title">Criar Conta</h1>
+                <p class="app-subtitle">Comece sua jornada financeira</p>
+            </div>
+
+            <form id="register-form" class="auth-form">
+                <div class="form-group">
+                    <label for="register-name">Nome Completo</label>
+                    <input type="text" id="register-name" placeholder="Seu nome" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="register-email">Email</label>
+                    <input type="email" id="register-email" placeholder="seu@email.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="register-password">Senha</label>
+                    <input type="password" id="register-password" placeholder="Mínimo 6 caracteres" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="register-confirm">Confirmar Senha</label>
+                    <input type="password" id="register-confirm" placeholder="Digite a senha novamente" required>
+                </div>
+
+                <div id="register-error" class="alert alert-error hidden"></div>
+                <div id="register-success" class="alert alert-success hidden"></div>
+
+                <button type="submit" class="btn btn-primary btn-full">Criar Conta</button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Já tem uma conta?</p>
+                <button id="show-login" class="link-button">Fazer login →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="main-app" class="hidden">
+        <!-- Navigation -->
+        <nav class="navbar">
+            <div class="nav-container">
+                <div class="nav-brand">
+                    <div class="brand-icon">
+                        <i class="fas fa-wallet"></i>
+                    </div>
+                    <span class="brand-name">FinControl Pro</span>
+                </div>
+
+                <div class="nav-menu">
+                    <button class="nav-item active" data-page="dashboard">
+                        <i class="fas fa-chart-line"></i> Dashboard
+                    </button>
+                    <button class="nav-item" data-page="transactions">
+                        <i class="fas fa-exchange-alt"></i> Lançamentos
+                    </button>
+                    <button class="nav-item" data-page="reports">
+                        <i class="fas fa-chart-bar"></i> Relatórios
+                    </button>
+                    <button class="nav-item" data-page="budgets">
+                        <i class="fas fa-credit-card"></i> Orçamentos
+                    </button>
+                    <button class="nav-item" data-page="goals">
+                        <i class="fas fa-bullseye"></i> Metas
+                    </button>
+                    <button class="nav-item logout-btn">
+                        <i class="fas fa-sign-out-alt"></i> Sair
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Content Area -->
+        <main class="main-content">
+            <!-- Dashboard Page -->
+            <div id="dashboard-page" class="content-page">
+                <div class="page-header">
+                    <div>
+                        <h2 class="page-title">Olá, <span id="user-name"></span>! 👋</h2>
+                        <p class="page-subtitle">Aqui está um resumo das suas finanças</p>
+                    </div>
+                    <select id="filter-period" class="select-filter">
+                        <option value="week">Última semana</option>
+                        <option value="month" selected>Último mês</option>
+                        <option value="year">Último ano</option>
+                        <option value="all">Tudo</option>
+                    </select>
+                </div>
+
+                <!-- Alerts -->
+                <div id="alerts-container"></div>
+
+                <!-- Summary Cards -->
+                <div class="summary-cards">
+                    <div class="summary-card income-card">
+                        <div class="card-header">
+                            <div class="card-icon">
+                                <i class="fas fa-arrow-up"></i>
+                            </div>
+                            <span>Receitas</span>
+                        </div>
+                        <p class="card-amount" id="total-income">R$ 0,00</p>
+                        <p class="card-info" id="income-percentage">0% do total</p>
+                    </div>
+
+                    <div class="summary-card expense-card">
+                        <div class="card-header">
+                            <div class="card-icon">
+                                <i class="fas fa-arrow-down"></i>
+                            </div>
+                            <span>Despesas</span>
+                        </div>
+                        <p class="card-amount" id="total-expense">R$ 0,00</p>
+                        <p class="card-info" id="expense-percentage">0% do total</p>
+                    </div>
+
+                    <div class="summary-card balance-card">
+                        <div class="card-header">
+                            <div class="card-icon">
+                                <i class="fas fa-wallet"></i>
+                            </div>
+                            <span>Saldo</span>
+                        </div>
+                        <p class="card-amount" id="total-balance">R$ 0,00</p>
+                        <p class="card-info" id="balance-status">Situação positiva</p>
+                    </div>
+                </div>
+
+                <!-- Chart -->
+                <div class="card">
+                    <h3 class="card-title">
+                        <i class="fas fa-chart-area"></i> Evolução Financeira
+                    </h3>
+                    <canvas id="evolution-chart"></canvas>
+                </div>
+
+                <!-- Recent Transactions and Goals -->
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header-flex">
+                            <h3 class="card-title">
+                                <i class="fas fa-file-invoice"></i> Transações Recentes
+                            </h3>
+                            <button class="link-btn" data-page="transactions">
+                                Ver todas <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                        <div id="recent-transactions"></div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header-flex">
+                            <h3 class="card-title">
+                                <i class="fas fa-bullseye"></i> Metas Financeiras
+                            </h3>
+                            <button class="link-btn" data-page="goals">
+                                Gerenciar <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                        <div id="goals-preview"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transactions Page -->
+            <div id="transactions-page" class="content-page hidden">
+                <h2 class="page-title">Lançamentos Financeiros</h2>
+
+                <div class="card">
+                    <h3 class="card-title">
+                        <i class="fas fa-plus-circle"></i> Nova Transação
+                    </h3>
+                    <form id="transaction-form" class="form-grid">
+                        <div class="form-group">
+                            <label>Tipo *</label>
+                            <select id="transaction-type" required>
+                                <option value="">Selecione o tipo</option>
+                                <option value="income">💰 Receita</option>
+                                <option value="expense">💸 Despesa</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Valor *</label>
+                            <input type="number" id="transaction-amount" step="0.01" placeholder="0.00" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Categoria *</label>
+                            <input type="text" id="transaction-category" placeholder="Ex: Salário, Alimentação" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Data *</label>
+                            <input type="date" id="transaction-date" required>
+                        </div>
+
+                        <div class="form-group form-full">
+                            <label>Descrição</label>
+                            <textarea id="transaction-description" rows="3" placeholder="Informações adicionais (opcional)"></textarea>
+                        </div>
+
+                        <div id="transaction-error" class="alert alert-error hidden form-full"></div>
+                        <div id="transaction-success" class="alert alert-success hidden form-full"></div>
+
+                        <button type="submit" class="btn btn-primary form-full">
+                            <i class="fas fa-plus-circle"></i> Adicionar Transação
+                        </button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Histórico Completo</h3>
+                    <div id="transactions-list"></div>
+                </div>
+            </div>
+
+            <!-- Reports Page -->
+            <div id="reports-page" class="content-page hidden">
+                <div class="page-header">
+                    <h2 class="page-title">
+                        <i class="fas fa-chart-bar"></i> Relatórios Financeiros
+                    </h2>
+                    <select id="reports-filter" class="select-filter">
+                        <option value="week">Última semana</option>
+                        <option value="month" selected>Último mês</option>
+                        <option value="year">Último ano</option>
+                        <option value="all">Tudo</option>
+                    </select>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Evolução Temporal</h3>
+                    <canvas id="temporal-chart"></canvas>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <h3 class="card-title">Comparativo Mensal</h3>
+                        <canvas id="comparison-chart"></canvas>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title">Distribuição de Gastos</h3>
+                        <canvas id="distribution-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Budgets Page -->
+            <div id="budgets-page" class="content-page hidden">
+                <h2 class="page-title">
+                    <i class="fas fa-credit-card"></i> Orçamentos
+                </h2>
+
+                <div class="card">
+                    <h3 class="card-title">Definir Novo Orçamento</h3>
+                    <form id="budget-form" class="form-grid">
+                        <div class="form-group">
+                            <label>Categoria *</label>
+                            <input type="text" id="budget-category" placeholder="Ex: Alimentação, Transporte" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Valor Mensal *</label>
+                            <input type="number" id="budget-amount" step="0.01" placeholder="0.00" required>
+                        </div>
+
+                        <div id="budget-error" class="alert alert-error hidden form-full"></div>
+                        <div id="budget-success" class="alert alert-success hidden form-full"></div>
+
+                        <button type="submit" class="btn btn-primary form-full">
+                            <i class="fas fa-plus"></i> Adicionar Orçamento
+                        </button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Orçamentos Ativos</h3>
+                    <div id="budgets-list"></div>
+                </div>
+            </div>
+
+            <!-- Goals Page -->
+            <div id="goals-page" class="content-page hidden">
+                <h2 class="page-title">
+                    <i class="fas fa-bullseye"></i> Metas Financeiras
+                </h2>
+
+                <div class="card">
+                    <h3 class="card-title">Criar Nova Meta</h3>
+                    <form id="goal-form" class="form-grid">
+                        <div class="form-group">
+                            <label>Nome da Meta *</label>
+                            <input type="text" id="goal-name" placeholder="Ex: Viagem, Carro novo" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Valor Alvo *</label>
+                            <input type="number" id="goal-amount" step="0.01" placeholder="0.00" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Data Limite *</label>
+                            <input type="date" id="goal-deadline" required>
+                        </div>
+
+                        <div id="goal-error" class="alert alert-error hidden form-full"></div>
+                        <div id="goal-success" class="alert alert-success hidden form-full"></div>
+
+                        <button type="submit" class="btn btn-primary form-full">
+                            <i class="fas fa-plus"></i> Criar Meta
+                        </button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Minhas Metas</h3>
+                    <div id="goals-list"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-container">
+                <div class="footer-column">
+                    <h4>✨ Recursos Atuais</h4>
+                    <ul>
+                        <li>• Dashboard interativo</li>
+                        <li>• Gestão de transações</li>
+                        <li>• Relatórios visuais</li>
+                        <li>• Controle de orçamentos</li>
+                        <li>• Metas financeiras</li>
+                        <li>• Alertas inteligentes</li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>🚀 Próximas Atualizações</h4>
+                    <ul>
+                        <li>• Exportação de relatórios (PDF/Excel)</li>
+                        <li>• Categorias personalizáveis</li>
+                        <li>• Recorrência automática</li>
+                        <li>• Multi-moedas</li>
+                        <li>• Backup em nuvem</li>
+                        <li>• App mobile</li>
+                        <li>• Integração bancária</li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>💡 Sobre o Sistema</h4>
+                    <p>Sistema completo de controle financeiro pessoal com recursos avançados para gerenciar suas finanças de forma inteligente e eficiente.</p>
+                    <p class="footer-version">Versão 1.0 • Todos os dados são armazenados localmente e criptografados</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
