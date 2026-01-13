@@ -43,14 +43,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadData();
     setupEventListeners();
     
-    setTimeout(() => {
-        document.getElementById('loading-screen').style.display = 'none';
-        if (DB.currentUser) {
-            showMainApp();
-        } else {
-            document.getElementById('login-page').classList.remove('hidden');
-        }
-    }, 1000);
+    // Esconder loading e mostrar página apropriada
+    document.getElementById('loading-screen').style.display = 'none';
+    
+    if (DB.currentUser) {
+        showMainApp();
+    } else {
+        document.getElementById('login-page').classList.remove('hidden');
+    }
 });
 
 // Gerenciamento de dados
