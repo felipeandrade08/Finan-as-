@@ -833,6 +833,123 @@ body {
     color: var(--gray-500);
 }
 
+.footer-author {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 2px solid var(--gray-200);
+    text-align: center;
+}
+
+/* Settings Page */
+.settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.settings-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+}
+
+.settings-item h4 {
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-bottom: 4px;
+}
+
+.settings-item p {
+    font-size: 14px;
+    color: var(--gray-600);
+}
+
+.mobile-app-section {
+    text-align: center;
+}
+
+.mobile-app-preview {
+    padding: 32px;
+    background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
+    border-radius: 16px;
+    margin-bottom: 24px;
+}
+
+.mobile-features {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--gray-50);
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.feature-item i {
+    color: var(--success);
+    font-size: 18px;
+}
+
+.category-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--gray-50);
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.category-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.category-badge {
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.category-badge.income {
+    background: #d1fae5;
+    color: var(--success);
+}
+
+.category-badge.expense {
+    background: #fee2e2;
+    color: var(--danger);
+}
+
+.category-badge.both {
+    background: #dbeafe;
+    color: var(--primary);
+}
+
+.category-delete {
+    background: none;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 4px;
+    transition: background 0.3s ease;
+}
+
+.category-delete:hover {
+    background: #fee2e2;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .nav-menu {
@@ -857,5 +974,14 @@ body {
 
     .summary-cards {
         grid-template-columns: 1fr;
+    }
+
+    .mobile-features {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-item {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }
