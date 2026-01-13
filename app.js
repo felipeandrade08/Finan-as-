@@ -11,8 +11,8 @@ const DB = {
     currentUser: null
 };
 
-// Supabase
-let supabase = null;
+// Supabase client instance
+let supabaseClient = null;
 let supabaseConfig = {
     url: 'https://nnhrpvwyawjzzgnwbxpy.supabase.co',
     key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uaHJwdnd5YXdqenpnbndieHB5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgyNjM0MjksImV4cCI6MjA4MzgzOTQyOX0.6ITiSW88PFl5sE9Aoslxw2wqVr8teO4ue3AqaeweNXw',
@@ -1431,16 +1431,21 @@ async function handleSaveSupabase() {
 }
 
 function initializeSupabase() {
-    const { createClient } = window.supabase;
-    supabase = createClient(supabaseConfig.url, supabaseConfig.key);
-    
-    document.getElementById('manual-sync-btn').disabled = false;
-    document.getElementById('sync-status-text').textContent = 'Conectado';
-    document.getElementById('sync-status-text').style.color = 'var(--success)';
+    try {
+        const { createClient } = window.supabase;
+        supabaseClient = createClient(supabaseConfig.url, supabaseConfig.key);
+        
+        document.getElementById('manual-sync-btn').disabled = false;
+        document.getElementById('sync-status-text').textContent = 'Conectado';
+        document.getElementById('sync-status-text').style.color = 'var(--success)';
+    } catch (err) {
+        console.error('Erro ao inicializar Supabase:', err);
+        showAlert('supabase-error', 'Erro ao conectar com Supabase');
+    }
 }
 
 async function syncWithSupabase() {
-    if (!supabase) {
+    if (!supabaseClient) {
         showAlert('supabase-error', 'Configure o Supabase primeiro');
         return;
     }
@@ -1453,7 +1458,7 @@ async function syncWithSupabase() {
         // Sincronizar transações
         const userTransactions = getUserTransactions();
         for (const transaction of userTransactions) {
-            await supabase.from('transactions').upsert({
+            await supabaseClient.from('transactions').upsert({
                 ...transaction,
                 user_id: DB.currentUser.id,
                 synced_at: new Date().toISOString()
@@ -1463,7 +1468,7 @@ async function syncWithSupabase() {
         // Sincronizar orçamentos
         const userBudgets = getUserBudgets();
         for (const budget of userBudgets) {
-            await supabase.from('budgets').upsert({
+            await supabaseClient.from('budgets').upsert({
                 ...budget,
                 user_id: DB.currentUser.id,
                 synced_at: new Date().toISOString()
@@ -1473,7 +1478,7 @@ async function syncWithSupabase() {
         // Sincronizar metas
         const userGoals = getUserGoals();
         for (const goal of userGoals) {
-            await supabase.from('goals').upsert({
+            await supabaseClient.from('goals').upsert({
                 ...goal,
                 user_id: DB.currentUser.id,
                 synced_at: new Date().toISOString()
@@ -1483,7 +1488,7 @@ async function syncWithSupabase() {
         // Sincronizar investimentos
         const userInvestments = getUserInvestments();
         for (const investment of userInvestments) {
-            await supabase.from('investments').upsert({
+            await supabaseClient.from('investments').upsert({
                 ...investment,
                 user_id: DB.currentUser.id,
                 synced_at: new Date().toISOString()
@@ -1514,7 +1519,7 @@ async function handleAutoSyncToggle(e) {
     supabaseConfig.autoSync = e.target.checked;
     await window.storage.set('supabase-config', JSON.stringify(supabaseConfig), false);
     
-    if (supabaseConfig.autoSync && supabase) {
+    if (supabaseConfig.autoSync && supabaseClient) {
         showAlert('supabase-success', 'Sincronização automática ativada!');
         setTimeout(() => hideAlert('supabase-success'), 2000);
     }
@@ -1551,7 +1556,7 @@ async function handleAddInvestment(e) {
     DB.investments.push(investment);
     await saveData();
     
-    if (supabaseConfig.autoSync && supabase) {
+    if (supabaseConfig.autoSync && supabaseClient) {
         await syncWithSupabase();
     }
     
