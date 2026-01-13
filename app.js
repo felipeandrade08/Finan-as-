@@ -6,7 +6,17 @@ const DB = {
     goals: [],
     categories: [],
     recurringTransactions: [],
+    investments: [],
+    familyMembers: [],
     currentUser: null
+};
+
+// Supabase
+let supabase = null;
+let supabaseConfig = {
+    url: '',
+    key: '',
+    autoSync: false
 };
 
 // Categorias padrão
@@ -153,6 +163,26 @@ function setupEventListeners() {
     // PWA Install
     document.getElementById('install-pwa-btn').addEventListener('click', handleInstallPWA);
 
+    // Theme toggle
+    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+    document.querySelectorAll('.theme-option').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const theme = e.currentTarget.dataset.theme;
+            setTheme(theme);
+        });
+    });
+
+    // Supabase
+    document.getElementById('save-supabase-btn').addEventListener('click', handleSaveSupabase);
+    document.getElementById('manual-sync-btn').addEventListener('click', syncWithSupabase);
+    document.getElementById('auto-sync-toggle').addEventListener('change', handleAutoSyncToggle);
+
+    // Investments
+    document.getElementById('investment-form').addEventListener('submit', handleAddInvestment);
+
+    // Family
+    document.getElementById('invite-family-btn').addEventListener('click', handleInviteFamily);
+
     // PWA prompt
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
@@ -173,6 +203,12 @@ function setupEventListeners() {
 
     // Processar transações recorrentes ao carregar
     processRecurringTransactions();
+    
+    // Carregar tema salvo
+    loadTheme();
+    
+    // Carregar config do Supabase
+    loadSupabaseConfig();
 }
 
 // Autenticação
@@ -1317,4 +1353,469 @@ async function handleInstallPWA() {
     
     deferredPrompt = null;
     document.getElementById('install-pwa-btn').style.display = 'none';
+}
+
+// Modo Escuro
+function loadTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
+}
+
+function setTheme(theme) {
+    const body = document.body;
+    const themeIcon = document.querySelector('#theme-toggle i');
+    
+    // Atualizar botões de seleção
+    document.querySelectorAll('.theme-option').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.theme === theme) {
+            btn.classList.add('active');
+        }
+    });
+    
+    if (theme === 'auto') {
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        body.className = isDark ? 'dark-theme' : 'light-theme';
+    } else {
+        body.className = `${theme}-theme`;
+    }
+    
+    themeIcon.className = body.classList.contains('dark-theme') ? 'fas fa-sun' : 'fas fa-moon';
+    localStorage.setItem('theme', theme);
+}
+
+function toggleTheme() {
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+}
+
+// Supabase Integration
+async function loadSupabaseConfig() {
+    try {
+        const config = await window.storage.get('supabase-config', false);
+        if (config && config.value) {
+            supabaseConfig = JSON.parse(config.value);
+            document.getElementById('supabase-url').value = supabaseConfig.url || '';
+            document.getElementById('supabase-key').value = supabaseConfig.key || '';
+            document.getElementById('auto-sync-toggle').checked = supabaseConfig.autoSync || false;
+            
+            if (supabaseConfig.url && supabaseConfig.key) {
+                initializeSupabase();
+            }
+        }
+    } catch (err) {
+        console.log('Config do Supabase não encontrada');
+    }
+}
+
+async function handleSaveSupabase() {
+    const url = document.getElementById('supabase-url').value.trim();
+    const key = document.getElementById('supabase-key').value.trim();
+    
+    if (!url || !key) {
+        showAlert('supabase-error', 'Preencha todos os campos');
+        return;
+    }
+    
+    supabaseConfig.url = url;
+    supabaseConfig.key = key;
+    
+    await window.storage.set('supabase-config', JSON.stringify(supabaseConfig), false);
+    
+    initializeSupabase();
+    showAlert('supabase-success', 'Configuração salva com sucesso!');
+    setTimeout(() => hideAlert('supabase-success'), 3000);
+}
+
+function initializeSupabase() {
+    const { createClient } = window.supabase;
+    supabase = createClient(supabaseConfig.url, supabaseConfig.key);
+    
+    document.getElementById('manual-sync-btn').disabled = false;
+    document.getElementById('sync-status-text').textContent = 'Conectado';
+    document.getElementById('sync-status-text').style.color = 'var(--success)';
+}
+
+async function syncWithSupabase() {
+    if (!supabase) {
+        showAlert('supabase-error', 'Configure o Supabase primeiro');
+        return;
+    }
+    
+    try {
+        const btn = document.getElementById('manual-sync-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
+        
+        // Sincronizar transações
+        const userTransactions = getUserTransactions();
+        for (const transaction of userTransactions) {
+            await supabase.from('transactions').upsert({
+                ...transaction,
+                user_id: DB.currentUser.id,
+                synced_at: new Date().toISOString()
+            });
+        }
+        
+        // Sincronizar orçamentos
+        const userBudgets = getUserBudgets();
+        for (const budget of userBudgets) {
+            await supabase.from('budgets').upsert({
+                ...budget,
+                user_id: DB.currentUser.id,
+                synced_at: new Date().toISOString()
+            });
+        }
+        
+        // Sincronizar metas
+        const userGoals = getUserGoals();
+        for (const goal of userGoals) {
+            await supabase.from('goals').upsert({
+                ...goal,
+                user_id: DB.currentUser.id,
+                synced_at: new Date().toISOString()
+            });
+        }
+        
+        // Sincronizar investimentos
+        const userInvestments = getUserInvestments();
+        for (const investment of userInvestments) {
+            await supabase.from('investments').upsert({
+                ...investment,
+                user_id: DB.currentUser.id,
+                synced_at: new Date().toISOString()
+            });
+        }
+        
+        const now = new Date().toLocaleString('pt-BR');
+        document.getElementById('last-sync').textContent = `Última sincronização: ${now}`;
+        localStorage.setItem('last-sync', now);
+        
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync-alt"></i> Sincronizar Agora';
+        
+        showAlert('supabase-success', 'Dados sincronizados com sucesso!');
+        setTimeout(() => hideAlert('supabase-success'), 3000);
+        
+    } catch (err) {
+        console.error('Erro na sincronização:', err);
+        showAlert('supabase-error', 'Erro ao sincronizar: ' + err.message);
+        
+        const btn = document.getElementById('manual-sync-btn');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync-alt"></i> Sincronizar Agora';
+    }
+}
+
+async function handleAutoSyncToggle(e) {
+    supabaseConfig.autoSync = e.target.checked;
+    await window.storage.set('supabase-config', JSON.stringify(supabaseConfig), false);
+    
+    if (supabaseConfig.autoSync && supabase) {
+        showAlert('supabase-success', 'Sincronização automática ativada!');
+        setTimeout(() => hideAlert('supabase-success'), 2000);
+    }
+}
+
+// Investimentos
+async function handleAddInvestment(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('investment-name').value;
+    const type = document.getElementById('investment-type').value;
+    const amount = parseFloat(document.getElementById('investment-amount').value);
+    const current = parseFloat(document.getElementById('investment-current').value) || amount;
+    const date = document.getElementById('investment-date').value;
+    const yieldRate = parseFloat(document.getElementById('investment-yield').value) || 0;
+    
+    if (!name || !type || !amount || !date) {
+        showAlert('investment-error', 'Preencha todos os campos obrigatórios');
+        return;
+    }
+    
+    const investment = {
+        id: Date.now(),
+        userId: DB.currentUser.id,
+        name,
+        type,
+        amount,
+        currentValue: current,
+        date,
+        yieldRate,
+        createdAt: new Date().toISOString()
+    };
+    
+    DB.investments.push(investment);
+    await saveData();
+    
+    if (supabaseConfig.autoSync && supabase) {
+        await syncWithSupabase();
+    }
+    
+    showAlert('investment-success', 'Investimento adicionado com sucesso!');
+    document.getElementById('investment-form').reset();
+    updateInvestmentsList();
+    
+    setTimeout(() => hideAlert('investment-success'), 3000);
+}
+
+function updateInvestmentsList() {
+    const container = document.getElementById('investments-list');
+    const investments = getUserInvestments();
+    
+    if (investments.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-chart-line"></i>
+                <p>Nenhum investimento registrado</p>
+            </div>
+        `;
+        updateInvestmentSummary();
+        return;
+    }
+    
+    container.innerHTML = investments.map(inv => {
+        const profit = inv.currentValue - inv.amount;
+        const profitPercent = ((profit / inv.amount) * 100).toFixed(2);
+        
+        return `
+            <div class="investment-item">
+                <div class="investment-header">
+                    <div>
+                        <h4 class="investment-name">${inv.name}</h4>
+                        <span class="investment-type">${getInvestmentTypeLabel(inv.type)}</span>
+                    </div>
+                    <button class="category-delete" onclick="deleteInvestment(${inv.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+                <div class="investment-details">
+                    <div class="investment-detail">
+                        <span class="investment-detail-label">Investido</span>
+                        <span class="investment-detail-value">R$ ${inv.amount.toFixed(2)}</span>
+                    </div>
+                    <div class="investment-detail">
+                        <span class="investment-detail-label">Valor Atual</span>
+                        <span class="investment-detail-value">R$ ${inv.currentValue.toFixed(2)}</span>
+                    </div>
+                    <div class="investment-detail">
+                        <span class="investment-detail-label">Rendimento</span>
+                        <span class="investment-detail-value ${profit >= 0 ? 'success' : 'danger'}">
+                            ${profit >= 0 ? '+' : ''}R$ ${profit.toFixed(2)} (${profitPercent}%)
+                        </span>
+                    </div>
+                    <div class="investment-detail">
+                        <span class="investment-detail-label">Data</span>
+                        <span class="investment-detail-value">${formatDate(inv.date)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    updateInvestmentSummary();
+    updateInvestmentDistributionChart();
+}
+
+function updateInvestmentSummary() {
+    const investments = getUserInvestments();
+    
+    const totalInvested = investments.reduce((sum, inv) => sum + inv.amount, 0);
+    const totalCurrent = investments.reduce((sum, inv) => sum + inv.currentValue, 0);
+    const totalProfit = totalCurrent - totalInvested;
+    const totalReturn = totalInvested > 0 ? ((totalProfit / totalInvested) * 100).toFixed(2) : 0;
+    
+    document.getElementById('total-invested').textContent = `R$ ${totalInvested.toFixed(2)}`;
+    document.getElementById('total-current').textContent = `R$ ${totalCurrent.toFixed(2)}`;
+    document.getElementById('total-profit').textContent = `R$ ${totalProfit.toFixed(2)}`;
+    document.getElementById('total-profit').className = `summary-value ${totalProfit >= 0 ? 'success' : 'danger'}`;
+    document.getElementById('total-return').textContent = `${totalReturn}%`;
+    document.getElementById('total-return').className = `summary-value ${totalProfit >= 0 ? 'success' : 'danger'}`;
+}
+
+function updateInvestmentDistributionChart() {
+    const ctx = document.getElementById('investment-distribution-chart');
+    const investments = getUserInvestments();
+    
+    if (charts.investmentDistribution) {
+        charts.investmentDistribution.destroy();
+    }
+    
+    if (investments.length === 0) {
+        ctx.parentElement.innerHTML = '<p class="empty-state">Sem dados</p>';
+        return;
+    }
+    
+    const grouped = {};
+    investments.forEach(inv => {
+        if (!grouped[inv.type]) grouped[inv.type] = 0;
+        grouped[inv.type] += inv.currentValue;
+    });
+    
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+    
+    charts.investmentDistribution = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(grouped).map(getInvestmentTypeLabel),
+            datasets: [{
+                data: Object.values(grouped),
+                backgroundColor: colors
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+}
+
+function getInvestmentTypeLabel(type) {
+    const labels = {
+        'acoes': 'Ações',
+        'fundos': 'Fundos',
+        'renda-fixa': 'Renda Fixa',
+        'tesouro': 'Tesouro',
+        'cripto': 'Cripto',
+        'imoveis': 'Imóveis',
+        'outros': 'Outros'
+    };
+    return labels[type] || type;
+}
+
+async function deleteInvestment(id) {
+    if (!confirm('Deseja excluir este investimento?')) return;
+    
+    DB.investments = DB.investments.filter(i => i.id !== id);
+    await saveData();
+    updateInvestmentsList();
+}
+
+function getUserInvestments() {
+    return DB.investments.filter(i => i.userId === DB.currentUser.id);
+}
+
+// Compartilhamento Familiar
+async function handleInviteFamily() {
+    const email = document.getElementById('family-email').value.trim();
+    const permission = document.getElementById('family-permission').value;
+    
+    if (!email) {
+        showAlert('family-error', 'Digite um email');
+        return;
+    }
+    
+    const member = {
+        id: Date.now(),
+        userId: DB.currentUser.id,
+        email,
+        permission,
+        status: 'pending',
+        invitedAt: new Date().toISOString()
+    };
+    
+    DB.familyMembers.push(member);
+    await saveData();
+    
+    showAlert('family-success', 'Convite enviado com sucesso!');
+    document.getElementById('family-email').value = '';
+    updateFamilyMembersList();
+    
+    setTimeout(() => hideAlert('family-success'), 3000);
+}
+
+function updateFamilyMembersList() {
+    const container = document.getElementById('family-members-list');
+    const members = DB.familyMembers.filter(m => m.userId === DB.currentUser.id);
+    
+    if (members.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-users"></i>
+                <p>Nenhum membro adicionado ainda</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = members.map(member => {
+        const initial = member.email.charAt(0).toUpperCase();
+        return `
+            <div class="family-member-item">
+                <div class="family-member-info">
+                    <div class="family-avatar">${initial}</div>
+                    <div class="family-member-details">
+                        <h4>${member.email}</h4>
+                        <p>Status: ${member.status === 'pending' ? 'Pendente' : 'Ativo'}</p>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span class="family-permission-badge ${member.permission}">
+                        ${member.permission === 'admin' ? 'Admin' : member.permission === 'edit' ? 'Editar' : 'Visualizar'}
+                    </span>
+                    <button class="category-delete" onclick="removeFamilyMember(${member.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function removeFamilyMember(id) {
+    if (!confirm('Remover este membro?')) return;
+    
+    DB.familyMembers = DB.familyMembers.filter(m => m.id !== id);
+    await saveData();
+    updateFamilyMembersList();
+}
+
+// Atualizar navegação
+function navigateTo(page) {
+    document.querySelectorAll('.content-page').forEach(p => p.classList.add('hidden'));
+    document.getElementById(`${page}-page`).classList.remove('hidden');
+    
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.page === page) {
+            item.classList.add('active');
+        }
+    });
+
+    switch(page) {
+        case 'dashboard':
+            updateDashboard();
+            break;
+        case 'transactions':
+            updateTransactionsList();
+            loadCategories();
+            break;
+        case 'reports':
+            updateReports();
+            break;
+        case 'budgets':
+            updateBudgetsList();
+            break;
+        case 'goals':
+            updateGoalsList();
+            break;
+        case 'investments':
+            updateInvestmentsList();
+            break;
+        case 'family':
+            updateFamilyMembersList();
+            break;
+        case 'settings':
+            updateCategoriesList();
+            loadCategories();
+            const lastSync = localStorage.getItem('last-sync');
+            if (lastSync) {
+                document.getElementById('last-sync').textContent = `Última sincronização: ${lastSync}`;
+            }
+            break;
+    }
 }
