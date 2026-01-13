@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Gerenciamento de dados
 async function loadData() {
     try {
-        const keys = ['users', 'transactions', 'budgets', 'goals', 'categories', 'recurringTransactions', 'currentUser'];
+        const keys = ['users', 'transactions', 'budgets', 'goals', 'categories', 'recurringTransactions', 'investments', 'familyMembers', 'currentUser'];
         for (const key of keys) {
             try {
                 const result = await window.storage.get(key, false);
@@ -89,6 +89,8 @@ async function saveData() {
         await window.storage.set('goals', JSON.stringify(DB.goals), false);
         await window.storage.set('categories', JSON.stringify(DB.categories), false);
         await window.storage.set('recurringTransactions', JSON.stringify(DB.recurringTransactions), false);
+        await window.storage.set('investments', JSON.stringify(DB.investments), false);
+        await window.storage.set('familyMembers', JSON.stringify(DB.familyMembers), false);
         if (DB.currentUser) {
             await window.storage.set('currentUser', JSON.stringify(DB.currentUser), false);
         }
