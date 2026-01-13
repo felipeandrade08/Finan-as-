@@ -4,11 +4,29 @@ const DB = {
     transactions: [],
     budgets: [],
     goals: [],
+    categories: [],
+    recurringTransactions: [],
     currentUser: null
 };
 
+// Categorias padrão
+const DEFAULT_CATEGORIES = [
+    { name: 'Salário', type: 'income' },
+    { name: 'Freelance', type: 'income' },
+    { name: 'Investimentos', type: 'income' },
+    { name: 'Alimentação', type: 'expense' },
+    { name: 'Transporte', type: 'expense' },
+    { name: 'Moradia', type: 'expense' },
+    { name: 'Saúde', type: 'expense' },
+    { name: 'Educação', type: 'expense' },
+    { name: 'Lazer', type: 'expense' },
+    { name: 'Compras', type: 'expense' },
+    { name: 'Contas', type: 'expense' }
+];
+
 let currentFilter = 'month';
 let charts = {};
+let deferredPrompt;
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', async () => {
@@ -28,7 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Gerenciamento de dados
 async function loadData() {
     try {
-        const keys = ['users', 'transactions', 'budgets', 'goals', 'currentUser'];
+        const keys = ['users', 'transactions', 'budgets', 'goals', 'categories', 'recurringTransactions', 'currentUser'];
         for (const key of keys) {
             try {
                 const result = await window.storage.get(key, false);
@@ -38,6 +56,15 @@ async function loadData() {
             } catch (err) {
                 console.log(`Chave ${key} não encontrada`);
             }
+        }
+        
+        // Inicializar categorias padrão se não existirem
+        if (DB.categories.length === 0) {
+            DB.categories = DEFAULT_CATEGORIES.map((cat, index) => ({
+                id: index + 1,
+                ...cat
+            }));
+            await saveData();
         }
     } catch (err) {
         console.log('Primeira inicialização');
@@ -50,6 +77,8 @@ async function saveData() {
         await window.storage.set('transactions', JSON.stringify(DB.transactions), false);
         await window.storage.set('budgets', JSON.stringify(DB.budgets), false);
         await window.storage.set('goals', JSON.stringify(DB.goals), false);
+        await window.storage.set('categories', JSON.stringify(DB.categories), false);
+        await window.storage.set('recurringTransactions', JSON.stringify(DB.recurringTransactions), false);
         if (DB.currentUser) {
             await window.storage.set('currentUser', JSON.stringify(DB.currentUser), false);
         }
@@ -96,6 +125,41 @@ function setupEventListeners() {
     document.getElementById('budget-form').addEventListener('submit', handleAddBudget);
     document.getElementById('goal-form').addEventListener('submit', handleAddGoal);
 
+    // Recurring checkbox
+    document.getElementById('transaction-recurring').addEventListener('change', (e) => {
+        const recurringOptions = document.getElementById('recurring-options');
+        if (e.target.checked) {
+            recurringOptions.classList.remove('hidden');
+        } else {
+            recurringOptions.classList.add('hidden');
+        }
+    });
+
+    // Categories
+    document.getElementById('manage-categories-btn').addEventListener('click', () => {
+        navigateTo('settings');
+    });
+    document.getElementById('add-category-btn').addEventListener('click', handleAddCategory);
+
+    // Export buttons
+    document.getElementById('export-pdf-btn').addEventListener('click', exportToPDF);
+    document.getElementById('export-excel-btn').addEventListener('click', exportToExcel);
+
+    // Backup buttons
+    document.getElementById('backup-btn').addEventListener('click', handleBackup);
+    document.getElementById('restore-btn').addEventListener('change', handleRestore);
+    document.getElementById('clear-data-btn').addEventListener('click', handleClearData);
+
+    // PWA Install
+    document.getElementById('install-pwa-btn').addEventListener('click', handleInstallPWA);
+
+    // PWA prompt
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        document.getElementById('install-pwa-btn').style.display = 'block';
+    });
+
     // Filters
     document.getElementById('filter-period').addEventListener('change', (e) => {
         currentFilter = e.target.value;
@@ -106,6 +170,9 @@ function setupEventListeners() {
         currentFilter = e.target.value;
         updateReports();
     });
+
+    // Processar transações recorrentes ao carregar
+    processRecurringTransactions();
 }
 
 // Autenticação
@@ -207,6 +274,7 @@ function navigateTo(page) {
             break;
         case 'transactions':
             updateTransactionsList();
+            loadCategories();
             break;
         case 'reports':
             updateReports();
@@ -216,6 +284,10 @@ function navigateTo(page) {
             break;
         case 'goals':
             updateGoalsList();
+            break;
+        case 'settings':
+            updateCategoriesList();
+            loadCategories();
             break;
     }
 }
@@ -229,6 +301,7 @@ async function handleAddTransaction(e) {
     const category = document.getElementById('transaction-category').value;
     const date = document.getElementById('transaction-date').value;
     const description = document.getElementById('transaction-description').value;
+    const isRecurring = document.getElementById('transaction-recurring').checked;
 
     if (!type || !amount || !category || !date) {
         showAlert('transaction-error', 'Preencha todos os campos obrigatórios');
@@ -247,11 +320,36 @@ async function handleAddTransaction(e) {
     };
 
     DB.transactions.push(transaction);
+    
+    // Se for recorrente, criar registro de recorrência
+    if (isRecurring) {
+        const frequency = document.getElementById('recurring-frequency').value;
+        const endDate = document.getElementById('recurring-end-date').value;
+        
+        const recurringTransaction = {
+            id: Date.now() + 1,
+            userId: DB.currentUser.id,
+            type,
+            amount,
+            category,
+            description,
+            frequency,
+            startDate: date,
+            endDate,
+            lastProcessed: date,
+            createdAt: new Date().toISOString()
+        };
+        
+        DB.recurringTransactions.push(recurringTransaction);
+    }
+    
     await saveData();
     
     showAlert('transaction-success', 'Transação adicionada com sucesso!');
     document.getElementById('transaction-form').reset();
+    document.getElementById('recurring-options').classList.add('hidden');
     updateTransactionsList();
+    loadCategories();
     
     setTimeout(() => hideAlert('transaction-success'), 3000);
 }
@@ -876,4 +974,347 @@ function showAlert(id, message) {
 
 function hideAlert(id) {
     document.getElementById(id).classList.add('hidden');
+}
+
+// Categorias
+function loadCategories() {
+    const select = document.getElementById('transaction-category');
+    const categories = DB.categories;
+    
+    select.innerHTML = '<option value="">Selecione uma categoria</option>';
+    
+    categories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.name;
+        option.textContent = cat.name;
+        select.appendChild(option);
+    });
+}
+
+async function handleAddCategory() {
+    const name = document.getElementById('new-category-name').value.trim();
+    const type = document.getElementById('new-category-type').value;
+    
+    if (!name) return;
+    
+    const newCategory = {
+        id: Date.now(),
+        name,
+        type
+    };
+    
+    DB.categories.push(newCategory);
+    await saveData();
+    
+    document.getElementById('new-category-name').value = '';
+    showAlert('categories-success', 'Categoria adicionada com sucesso!');
+    setTimeout(() => hideAlert('categories-success'), 3000);
+    
+    updateCategoriesList();
+    loadCategories();
+}
+
+function updateCategoriesList() {
+    const container = document.getElementById('categories-list');
+    
+    container.innerHTML = DB.categories.map(cat => `
+        <div class="category-item">
+            <div class="category-info">
+                <span style="font-weight: 600;">${cat.name}</span>
+                <span class="category-badge ${cat.type}">${cat.type === 'income' ? 'Receita' : cat.type === 'expense' ? 'Despesa' : 'Ambos'}</span>
+            </div>
+            <button class="category-delete" onclick="deleteCategory(${cat.id})">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+async function deleteCategory(id) {
+    if (!confirm('Deseja realmente excluir esta categoria?')) return;
+    
+    DB.categories = DB.categories.filter(c => c.id !== id);
+    await saveData();
+    updateCategoriesList();
+    loadCategories();
+}
+
+// Transações Recorrentes
+async function processRecurringTransactions() {
+    const now = new Date();
+    
+    for (const recurring of DB.recurringTransactions) {
+        const lastDate = new Date(recurring.lastProcessed || recurring.startDate);
+        const endDate = recurring.endDate ? new Date(recurring.endDate) : null;
+        
+        if (endDate && now > endDate) continue;
+        
+        let nextDate = new Date(lastDate);
+        
+        switch (recurring.frequency) {
+            case 'daily':
+                nextDate.setDate(nextDate.getDate() + 1);
+                break;
+            case 'weekly':
+                nextDate.setDate(nextDate.getDate() + 7);
+                break;
+            case 'monthly':
+                nextDate.setMonth(nextDate.getMonth() + 1);
+                break;
+            case 'yearly':
+                nextDate.setFullYear(nextDate.getFullYear() + 1);
+                break;
+        }
+        
+        if (nextDate <= now) {
+            const transaction = {
+                id: Date.now() + Math.random(),
+                userId: recurring.userId,
+                type: recurring.type,
+                amount: recurring.amount,
+                category: recurring.category,
+                date: nextDate.toISOString().split('T')[0],
+                description: recurring.description + ' (Recorrente)',
+                createdAt: new Date().toISOString()
+            };
+            
+            DB.transactions.push(transaction);
+            recurring.lastProcessed = nextDate.toISOString();
+            await saveData();
+        }
+    }
+}
+
+// Exportação PDF
+async function exportToPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const transactions = getFilteredTransactions();
+    const totals = calculateTotals();
+    
+    // Título
+    doc.setFontSize(20);
+    doc.setTextColor(37, 99, 235);
+    doc.text('FinControl Pro - Relatório Financeiro', 20, 20);
+    
+    // Informações do usuário
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Usuário: ${DB.currentUser.name}`, 20, 35);
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 20, 42);
+    doc.text(`Período: ${currentFilter}`, 20, 49);
+    
+    // Resumo
+    doc.setFontSize(14);
+    doc.text('Resumo Financeiro', 20, 65);
+    doc.setFontSize(11);
+    doc.text(`Receitas: R$ ${totals.income.toFixed(2)}`, 20, 75);
+    doc.text(`Despesas: R$ ${totals.expense.toFixed(2)}`, 20, 82);
+    doc.text(`Saldo: R$ ${totals.balance.toFixed(2)}`, 20, 89);
+    
+    // Transações
+    doc.setFontSize(14);
+    doc.text('Transações', 20, 105);
+    
+    let y = 115;
+    doc.setFontSize(9);
+    
+    transactions.slice(-20).reverse().forEach(t => {
+        if (y > 270) {
+            doc.addPage();
+            y = 20;
+        }
+        
+        const typeIcon = t.type === 'income' ? '+' : '-';
+        const text = `${formatDate(t.date)} | ${t.category} | ${typeIcon} R$ ${t.amount.toFixed(2)}`;
+        doc.text(text, 20, y);
+        y += 7;
+    });
+    
+    // Rodapé
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(128, 128, 128);
+        doc.text('Desenvolvido por FELIPE ANDRADE DEV', 20, 285);
+        doc.text(`Página ${i} de ${pageCount}`, 170, 285);
+    }
+    
+    doc.save(`FinControl_Relatorio_${new Date().getTime()}.pdf`);
+}
+
+// Exportação Excel
+function exportToExcel() {
+    const transactions = getFilteredTransactions();
+    const totals = calculateTotals();
+    
+    // Preparar dados
+    const data = transactions.map(t => ({
+        'Data': formatDate(t.date),
+        'Tipo': t.type === 'income' ? 'Receita' : 'Despesa',
+        'Categoria': t.category,
+        'Valor': t.amount,
+        'Descrição': t.description
+    }));
+    
+    // Adicionar resumo
+    data.unshift({});
+    data.unshift({
+        'Data': 'RESUMO',
+        'Tipo': '',
+        'Categoria': 'Saldo',
+        'Valor': totals.balance,
+        'Descrição': ''
+    });
+    data.unshift({
+        'Data': '',
+        'Tipo': '',
+        'Categoria': 'Despesas',
+        'Valor': totals.expense,
+        'Descrição': ''
+    });
+    data.unshift({
+        'Data': '',
+        'Tipo': '',
+        'Categoria': 'Receitas',
+        'Valor': totals.income,
+        'Descrição': ''
+    });
+    data.unshift({
+        'Data': `Relatório gerado em ${new Date().toLocaleDateString('pt-BR')}`,
+        'Tipo': '',
+        'Categoria': '',
+        'Valor': '',
+        'Descrição': ''
+    });
+    
+    // Criar workbook
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Transações');
+    
+    // Download
+    XLSX.writeFile(wb, `FinControl_Relatorio_${new Date().getTime()}.xlsx`);
+}
+
+// Backup e Restauração
+function handleBackup() {
+    const backup = {
+        version: '2.0',
+        date: new Date().toISOString(),
+        user: DB.currentUser,
+        data: {
+            transactions: getUserTransactions(),
+            budgets: getUserBudgets(),
+            goals: getUserGoals(),
+            categories: DB.categories,
+            recurringTransactions: DB.recurringTransactions.filter(r => r.userId === DB.currentUser.id)
+        }
+    };
+    
+    const dataStr = JSON.stringify(backup, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `FinControl_Backup_${new Date().getTime()}.json`;
+    link.click();
+    
+    showAlert('backup-success', 'Backup criado com sucesso!');
+    setTimeout(() => hideAlert('backup-success'), 3000);
+}
+
+async function handleRestore(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+        try {
+            const backup = JSON.parse(event.target.result);
+            
+            if (!backup.version || !backup.data) {
+                showAlert('backup-error', 'Arquivo de backup inválido!');
+                return;
+            }
+            
+            if (!confirm('Deseja restaurar este backup? Os dados atuais serão substituídos.')) {
+                return;
+            }
+            
+            // Restaurar dados
+            const userId = DB.currentUser.id;
+            
+            // Remover dados antigos do usuário
+            DB.transactions = DB.transactions.filter(t => t.userId !== userId);
+            DB.budgets = DB.budgets.filter(b => b.userId !== userId);
+            DB.goals = DB.goals.filter(g => g.userId !== userId);
+            DB.recurringTransactions = DB.recurringTransactions.filter(r => r.userId !== userId);
+            
+            // Adicionar dados do backup
+            DB.transactions.push(...backup.data.transactions);
+            DB.budgets.push(...backup.data.budgets);
+            DB.goals.push(...backup.data.goals);
+            if (backup.data.categories) {
+                DB.categories = backup.data.categories;
+            }
+            if (backup.data.recurringTransactions) {
+                DB.recurringTransactions.push(...backup.data.recurringTransactions);
+            }
+            
+            await saveData();
+            
+            showAlert('backup-success', 'Backup restaurado com sucesso!');
+            setTimeout(() => {
+                hideAlert('backup-success');
+                navigateTo('dashboard');
+            }, 2000);
+            
+        } catch (err) {
+            showAlert('backup-error', 'Erro ao restaurar backup: ' + err.message);
+        }
+    };
+    reader.readAsText(file);
+}
+
+async function handleClearData() {
+    if (!confirm('ATENÇÃO: Esta ação irá apagar TODOS os seus dados permanentemente. Deseja continuar?')) {
+        return;
+    }
+    
+    if (!confirm('Tem certeza? Esta ação não pode ser desfeita!')) {
+        return;
+    }
+    
+    const userId = DB.currentUser.id;
+    
+    DB.transactions = DB.transactions.filter(t => t.userId !== userId);
+    DB.budgets = DB.budgets.filter(b => b.userId !== userId);
+    DB.goals = DB.goals.filter(g => g.userId !== userId);
+    DB.recurringTransactions = DB.recurringTransactions.filter(r => r.userId !== userId);
+    
+    await saveData();
+    
+    alert('Todos os dados foram apagados com sucesso!');
+    navigateTo('dashboard');
+}
+
+// PWA Install
+async function handleInstallPWA() {
+    if (!deferredPrompt) {
+        alert('Este app já está instalado ou seu navegador não suporta instalação.');
+        return;
+    }
+    
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    
+    if (outcome === 'accepted') {
+        alert('App instalado com sucesso!');
+    }
+    
+    deferredPrompt = null;
+    document.getElementById('install-pwa-btn').style.display = 'none';
 }
