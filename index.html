@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sistema completo de controle financeiro pessoal - FinControl Pro">
+    <meta name="theme-color" content="#2563eb">
     <title>FinControl Pro - Sistema de Controle Financeiro</title>
+    <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -136,6 +139,9 @@
                     <button class="nav-item" data-page="goals">
                         <i class="fas fa-bullseye"></i> Metas
                     </button>
+                    <button class="nav-item" data-page="settings">
+                        <i class="fas fa-cog"></i> Configurações
+                    </button>
                     <button class="nav-item logout-btn">
                         <i class="fas fa-sign-out-alt"></i> Sair
                     </button>
@@ -260,7 +266,12 @@
 
                         <div class="form-group">
                             <label>Categoria *</label>
-                            <input type="text" id="transaction-category" placeholder="Ex: Salário, Alimentação" required>
+                            <select id="transaction-category" required>
+                                <option value="">Selecione uma categoria</option>
+                            </select>
+                            <button type="button" id="manage-categories-btn" class="link-button" style="margin-top: 4px;">
+                                <i class="fas fa-cog"></i> Gerenciar categorias
+                            </button>
                         </div>
 
                         <div class="form-group">
@@ -271,6 +282,29 @@
                         <div class="form-group form-full">
                             <label>Descrição</label>
                             <textarea id="transaction-description" rows="3" placeholder="Informações adicionais (opcional)"></textarea>
+                        </div>
+
+                        <div class="form-group form-full">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="transaction-recurring">
+                                <span>Transação recorrente</span>
+                            </label>
+                        </div>
+
+                        <div id="recurring-options" class="form-full hidden" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                            <div class="form-group">
+                                <label>Frequência</label>
+                                <select id="recurring-frequency">
+                                    <option value="daily">Diária</option>
+                                    <option value="weekly">Semanal</option>
+                                    <option value="monthly" selected>Mensal</option>
+                                    <option value="yearly">Anual</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Até quando?</label>
+                                <input type="date" id="recurring-end-date">
+                            </div>
                         </div>
 
                         <div id="transaction-error" class="alert alert-error hidden form-full"></div>
@@ -294,12 +328,20 @@
                     <h2 class="page-title">
                         <i class="fas fa-chart-bar"></i> Relatórios Financeiros
                     </h2>
-                    <select id="reports-filter" class="select-filter">
-                        <option value="week">Última semana</option>
-                        <option value="month" selected>Último mês</option>
-                        <option value="year">Último ano</option>
-                        <option value="all">Tudo</option>
-                    </select>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <select id="reports-filter" class="select-filter">
+                            <option value="week">Última semana</option>
+                            <option value="month" selected>Último mês</option>
+                            <option value="year">Último ano</option>
+                            <option value="all">Tudo</option>
+                        </select>
+                        <button id="export-pdf-btn" class="btn btn-primary" style="padding: 10px 16px;">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                        <button id="export-excel-btn" class="btn btn-primary" style="padding: 10px 16px;">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                    </div>
                 </div>
 
                 <div class="card">
@@ -392,6 +434,130 @@
                     <div id="goals-list"></div>
                 </div>
             </div>
+
+            <!-- Settings Page -->
+            <div id="settings-page" class="content-page hidden">
+                <h2 class="page-title">
+                    <i class="fas fa-cog"></i> Configurações
+                </h2>
+
+                <!-- Categorias -->
+                <div class="card">
+                    <h3 class="card-title">
+                        <i class="fas fa-tags"></i> Gerenciar Categorias
+                    </h3>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Nova Categoria</label>
+                            <input type="text" id="new-category-name" placeholder="Nome da categoria">
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo</label>
+                            <select id="new-category-type">
+                                <option value="income">Receita</option>
+                                <option value="expense">Despesa</option>
+                                <option value="both">Ambos</option>
+                            </select>
+                        </div>
+                        <button id="add-category-btn" class="btn btn-primary form-full">
+                            <i class="fas fa-plus"></i> Adicionar Categoria
+                        </button>
+                    </div>
+
+                    <div id="categories-success" class="alert alert-success hidden"></div>
+
+                    <div style="margin-top: 24px;">
+                        <h4 style="font-weight: 600; margin-bottom: 16px;">Categorias Ativas</h4>
+                        <div id="categories-list"></div>
+                    </div>
+                </div>
+
+                <!-- Backup e Dados -->
+                <div class="card">
+                    <h3 class="card-title">
+                        <i class="fas fa-cloud"></i> Backup e Dados
+                    </h3>
+                    
+                    <div class="settings-section">
+                        <div class="settings-item">
+                            <div>
+                                <h4>Exportar todos os dados</h4>
+                                <p>Faça backup completo de todas as suas informações</p>
+                            </div>
+                            <button id="backup-btn" class="btn btn-primary">
+                                <i class="fas fa-download"></i> Exportar Backup
+                            </button>
+                        </div>
+
+                        <div class="settings-item">
+                            <div>
+                                <h4>Importar dados</h4>
+                                <p>Restaure um backup anterior</p>
+                            </div>
+                            <label class="btn btn-primary" style="cursor: pointer;">
+                                <i class="fas fa-upload"></i> Importar Backup
+                                <input type="file" id="restore-btn" accept=".json" style="display: none;">
+                            </label>
+                        </div>
+
+                        <div class="settings-item" style="border-top: 2px solid var(--gray-200); padding-top: 24px; margin-top: 24px;">
+                            <div>
+                                <h4 style="color: var(--danger);">Limpar todos os dados</h4>
+                                <p>Esta ação não pode ser desfeita!</p>
+                            </div>
+                            <button id="clear-data-btn" class="btn" style="background: var(--danger); color: white;">
+                                <i class="fas fa-trash"></i> Limpar Tudo
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="backup-success" class="alert alert-success hidden"></div>
+                    <div id="backup-error" class="alert alert-error hidden"></div>
+                </div>
+
+                <!-- App Mobile -->
+                <div class="card">
+                    <h3 class="card-title">
+                        <i class="fas fa-mobile-alt"></i> App Mobile
+                    </h3>
+                    
+                    <div class="mobile-app-section">
+                        <div class="mobile-app-preview">
+                            <i class="fas fa-mobile-alt" style="font-size: 64px; color: var(--primary);"></i>
+                            <h4 style="margin-top: 16px; font-size: 20px; font-weight: 700;">FinControl Pro Mobile</h4>
+                            <p style="color: var(--gray-600); margin-top: 8px;">Acesse suas finanças de qualquer lugar</p>
+                        </div>
+
+                        <div class="mobile-features">
+                            <div class="feature-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Sincronização em tempo real</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Notificações de gastos</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Modo offline</span>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Escaneamento de notas fiscais</span>
+                            </div>
+                        </div>
+
+                        <button id="install-pwa-btn" class="btn btn-primary" style="width: 100%; margin-top: 24px;">
+                            <i class="fas fa-download"></i> Instalar App no Dispositivo
+                        </button>
+
+                        <p style="text-align: center; color: var(--gray-500); font-size: 12px; margin-top: 16px;">
+                            Disponível para Android, iOS, Windows, Mac e Linux
+                        </p>
+                    </div>
+                </div>
+            </div>
         </main>
 
         <!-- Footer -->
@@ -406,30 +572,50 @@
                         <li>• Controle de orçamentos</li>
                         <li>• Metas financeiras</li>
                         <li>• Alertas inteligentes</li>
+                        <li>• Exportação PDF/Excel</li>
+                        <li>• Categorias personalizáveis</li>
+                        <li>• Transações recorrentes</li>
+                        <li>• Backup e restauração</li>
                     </ul>
                 </div>
                 <div class="footer-column">
                     <h4>🚀 Próximas Atualizações</h4>
                     <ul>
-                        <li>• Exportação de relatórios (PDF/Excel)</li>
-                        <li>• Categorias personalizáveis</li>
-                        <li>• Recorrência automática</li>
-                        <li>• Multi-moedas</li>
-                        <li>• Backup em nuvem</li>
-                        <li>• App mobile</li>
-                        <li>• Integração bancária</li>
+                        <li>• Sincronização em nuvem</li>
+                        <li>• App mobile nativo</li>
+                        <li>• Multi-moedas e conversão</li>
+                        <li>• Integração bancária API</li>
+                        <li>• Análise por IA</li>
+                        <li>• Compartilhamento familiar</li>
+                        <li>• Planejamento fiscal</li>
+                        <li>• Investimentos</li>
+                        <li>• OCR de notas fiscais</li>
+                        <li>• Modo escuro</li>
                     </ul>
                 </div>
                 <div class="footer-column">
                     <h4>💡 Sobre o Sistema</h4>
                     <p>Sistema completo de controle financeiro pessoal com recursos avançados para gerenciar suas finanças de forma inteligente e eficiente.</p>
-                    <p class="footer-version">Versão 1.0 • Todos os dados são armazenados localmente e criptografados</p>
+                    <p class="footer-version">Versão 2.0 • Todos os dados são armazenados localmente e criptografados</p>
+                    <div class="footer-author">
+                        <p style="font-weight: 700; color: var(--primary); font-size: 16px; margin-top: 16px;">
+                            Desenvolvido por
+                        </p>
+                        <p style="font-weight: 800; font-size: 20px; background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                            FELIPE ANDRADE DEV
+                        </p>
+                        <p style="font-size: 12px; color: var(--gray-500); margin-top: 4px;">
+                            © 2025 - Todos os direitos reservados
+                        </p>
+                    </div>
                 </div>
             </div>
         </footer>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
