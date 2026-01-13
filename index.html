@@ -9,8 +9,9 @@
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
+<body class="light-theme">
     <!-- Loading Screen -->
     <div id="loading-screen">
         <div class="loader"></div>
@@ -139,8 +140,17 @@
                     <button class="nav-item" data-page="goals">
                         <i class="fas fa-bullseye"></i> Metas
                     </button>
+                    <button class="nav-item" data-page="investments">
+                        <i class="fas fa-chart-line"></i> Investimentos
+                    </button>
+                    <button class="nav-item" data-page="family">
+                        <i class="fas fa-users"></i> Família
+                    </button>
                     <button class="nav-item" data-page="settings">
                         <i class="fas fa-cog"></i> Configurações
+                    </button>
+                    <button id="theme-toggle" class="nav-item" title="Alternar tema">
+                        <i class="fas fa-moon"></i>
                     </button>
                     <button class="nav-item logout-btn">
                         <i class="fas fa-sign-out-alt"></i> Sair
@@ -441,6 +451,80 @@
                     <i class="fas fa-cog"></i> Configurações
                 </h2>
 
+                <!-- Tema -->
+                <div class="card">
+                    <h3 class="card-title">
+                        <i class="fas fa-palette"></i> Aparência
+                    </h3>
+                    
+                    <div class="theme-selector">
+                        <button class="theme-option active" data-theme="light">
+                            <i class="fas fa-sun"></i>
+                            <span>Claro</span>
+                        </button>
+                        <button class="theme-option" data-theme="dark">
+                            <i class="fas fa-moon"></i>
+                            <span>Escuro</span>
+                        </button>
+                        <button class="theme-option" data-theme="auto">
+                            <i class="fas fa-circle-half-stroke"></i>
+                            <span>Automático</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sincronização Supabase -->
+                <div class="card">
+                    <h3 class="card-title">
+                        <i class="fas fa-cloud-upload-alt"></i> Sincronização na Nuvem
+                    </h3>
+                    
+                    <div id="supabase-config">
+                        <p style="color: var(--gray-600); margin-bottom: 16px;">
+                            Configure sua conexão com Supabase para sincronizar dados na nuvem
+                        </p>
+                        
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Supabase URL</label>
+                                <input type="url" id="supabase-url" placeholder="https://xxx.supabase.co">
+                            </div>
+                            <div class="form-group">
+                                <label>Supabase Key</label>
+                                <input type="password" id="supabase-key" placeholder="eyJhbGciOiJIUzI1...">
+                            </div>
+                            <button id="save-supabase-btn" class="btn btn-primary form-full">
+                                <i class="fas fa-save"></i> Salvar Configuração
+                            </button>
+                        </div>
+
+                        <div id="sync-status" class="settings-item" style="margin-top: 24px; padding-top: 24px; border-top: 2px solid var(--gray-200);">
+                            <div>
+                                <h4>Status da Sincronização</h4>
+                                <p id="sync-status-text">Não configurado</p>
+                                <p id="last-sync" style="font-size: 12px; color: var(--gray-500); margin-top: 4px;"></p>
+                            </div>
+                            <button id="manual-sync-btn" class="btn btn-primary" disabled>
+                                <i class="fas fa-sync-alt"></i> Sincronizar Agora
+                            </button>
+                        </div>
+
+                        <div class="settings-item" style="margin-top: 16px;">
+                            <div>
+                                <h4>Sincronização Automática</h4>
+                                <p>Sincronizar automaticamente a cada alteração</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="auto-sync-toggle">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="supabase-success" class="alert alert-success hidden"></div>
+                    <div id="supabase-error" class="alert alert-error hidden"></div>
+                </div>
+
                 <!-- Categorias -->
                 <div class="card">
                     <h3 class="card-title">
@@ -558,6 +642,152 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Investments Page -->
+            <div id="investments-page" class="content-page hidden">
+                <h2 class="page-title">
+                    <i class="fas fa-chart-line"></i> Investimentos
+                </h2>
+
+                <div class="card">
+                    <h3 class="card-title">Adicionar Investimento</h3>
+                    <form id="investment-form" class="form-grid">
+                        <div class="form-group">
+                            <label>Nome do Investimento *</label>
+                            <input type="text" id="investment-name" placeholder="Ex: Tesouro Direto, Ações" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Tipo *</label>
+                            <select id="investment-type" required>
+                                <option value="">Selecione</option>
+                                <option value="acoes">Ações</option>
+                                <option value="fundos">Fundos de Investimento</option>
+                                <option value="renda-fixa">Renda Fixa</option>
+                                <option value="tesouro">Tesouro Direto</option>
+                                <option value="cripto">Criptomoedas</option>
+                                <option value="imoveis">Imóveis</option>
+                                <option value="outros">Outros</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Valor Investido *</label>
+                            <input type="number" id="investment-amount" step="0.01" placeholder="0.00" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Valor Atual</label>
+                            <input type="number" id="investment-current" step="0.01" placeholder="0.00">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Data do Investimento *</label>
+                            <input type="date" id="investment-date" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Rendimento Esperado (% a.a.)</label>
+                            <input type="number" id="investment-yield" step="0.01" placeholder="0.00">
+                        </div>
+
+                        <div id="investment-error" class="alert alert-error hidden form-full"></div>
+                        <div id="investment-success" class="alert alert-success hidden form-full"></div>
+
+                        <button type="submit" class="btn btn-primary form-full">
+                            <i class="fas fa-plus"></i> Adicionar Investimento
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Resumo de Investimentos -->
+                <div class="grid-2">
+                    <div class="card">
+                        <h3 class="card-title">Resumo Geral</h3>
+                        <div class="investment-summary">
+                            <div class="summary-item">
+                                <span class="summary-label">Total Investido</span>
+                                <span class="summary-value" id="total-invested">R$ 0,00</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Valor Atual</span>
+                                <span class="summary-value" id="total-current">R$ 0,00</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Rendimento</span>
+                                <span class="summary-value success" id="total-profit">R$ 0,00</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">% de Retorno</span>
+                                <span class="summary-value" id="total-return">0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title">Distribuição por Tipo</h3>
+                        <canvas id="investment-distribution-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Lista de Investimentos -->
+                <div class="card">
+                    <h3 class="card-title">Meus Investimentos</h3>
+                    <div id="investments-list"></div>
+                </div>
+            </div>
+
+            <!-- Family Page -->
+            <div id="family-page" class="content-page hidden">
+                <h2 class="page-title">
+                    <i class="fas fa-users"></i> Compartilhamento Familiar
+                </h2>
+
+                <div class="card">
+                    <h3 class="card-title">
+                        <i class="fas fa-user-plus"></i> Convidar Membro da Família
+                    </h3>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Email do Membro *</label>
+                            <input type="email" id="family-email" placeholder="email@exemplo.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Permissão *</label>
+                            <select id="family-permission">
+                                <option value="view">Visualizar apenas</option>
+                                <option value="edit">Visualizar e editar</option>
+                                <option value="admin">Administrador</option>
+                            </select>
+                        </div>
+                        <button id="invite-family-btn" class="btn btn-primary form-full">
+                            <i class="fas fa-paper-plane"></i> Enviar Convite
+                        </button>
+                    </div>
+
+                    <div id="family-success" class="alert alert-success hidden"></div>
+                    <div id="family-error" class="alert alert-error hidden"></div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Membros da Família</h3>
+                    <div id="family-members-list">
+                        <div class="empty-state">
+                            <i class="fas fa-users"></i>
+                            <p>Nenhum membro adicionado ainda</p>
+                            <p style="font-size: 14px; margin-top: 8px;">Convide membros da família para compartilhar finanças</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">
+                        <i class="fas fa-chart-pie"></i> Gastos por Membro
+                    </h3>
+                    <canvas id="family-expenses-chart"></canvas>
+                </div>
+            </div>
         </main>
 
         <!-- Footer -->
@@ -576,27 +806,31 @@
                         <li>• Categorias personalizáveis</li>
                         <li>• Transações recorrentes</li>
                         <li>• Backup e restauração</li>
+                        <li>• ✨ Modo escuro/claro</li>
+                        <li>• ✨ Sincronização Supabase</li>
+                        <li>• ✨ Gestão de investimentos</li>
+                        <li>• ✨ Compartilhamento familiar</li>
                     </ul>
                 </div>
                 <div class="footer-column">
                     <h4>🚀 Próximas Atualizações</h4>
                     <ul>
-                        <li>• Sincronização em nuvem</li>
-                        <li>• App mobile nativo</li>
+                        <li>• App mobile nativo iOS/Android</li>
                         <li>• Multi-moedas e conversão</li>
                         <li>• Integração bancária API</li>
                         <li>• Análise por IA</li>
-                        <li>• Compartilhamento familiar</li>
                         <li>• Planejamento fiscal</li>
-                        <li>• Investimentos</li>
                         <li>• OCR de notas fiscais</li>
-                        <li>• Modo escuro</li>
+                        <li>• Gestão de cartões</li>
+                        <li>• Alertas personalizados</li>
+                        <li>• Relatórios avançados</li>
+                        <li>• Dashboard personalizável</li>
                     </ul>
                 </div>
                 <div class="footer-column">
                     <h4>💡 Sobre o Sistema</h4>
-                    <p>Sistema completo de controle financeiro pessoal com recursos avançados para gerenciar suas finanças de forma inteligente e eficiente.</p>
-                    <p class="footer-version">Versão 2.0 • Todos os dados são armazenados localmente e criptografados</p>
+                    <p>Sistema completo de controle financeiro pessoal com recursos avançados para gerenciar suas finanças de forma inteligente e eficiente. Agora com modo escuro, sincronização em nuvem via Supabase, gestão de investimentos e compartilhamento familiar!</p>
+                    <p class="footer-version">Versão 3.0 • Dados seguros e criptografados • Supabase Integration</p>
                     <div class="footer-author">
                         <p style="font-weight: 700; color: var(--primary); font-size: 16px; margin-top: 16px;">
                             Desenvolvido por
