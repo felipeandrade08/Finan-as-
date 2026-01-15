@@ -50,45 +50,72 @@ let deferredPrompt;
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log('=== FINCONTROL PRO INICIANDO ===');
+    
     // Carregar tema ANTES de tudo
     loadTheme();
     
     // Inicializar Supabase se configurado
     await initializeSupabaseOnLoad();
     
+    // Carregar dados
     await loadData();
+    
+    console.log('Estado após carregar:');
+    console.log('- Usuários cadastrados:', DB.users.length);
+    console.log('- Usuário atual:', DB.currentUser ? DB.currentUser.email : 'nenhum');
+    
     setupEventListeners();
     
     // Esconder loading e mostrar página apropriada
     document.getElementById('loading-screen').style.display = 'none';
     
     if (DB.currentUser) {
+        console.log('✅ Usuário logado detectado! Mostrando dashboard...');
         showMainApp();
     } else {
+        console.log('❌ Nenhum usuário logado. Mostrando login...');
         document.getElementById('login-page').classList.remove('hidden');
     }
+    
+    console.log('=== INICIALIZAÇÃO COMPLETA ===');
 });
 
-// Gerenciamento de dados
+// Gerenciamento de dados com localStorage como fallback
 async function loadData() {
     try {
-        // Se Supabase estiver configurado, carregar de lá
-        if (supabaseClient && DB.currentUser) {
-            await loadFromSupabase();
-            return;
+        // Tentar carregar do localStorage primeiro (mais confiável)
+        const localUsers = localStorage.getItem('fincontrol_users');
+        const localCurrentUser = localStorage.getItem('fincontrol_current_user');
+        
+        if (localUsers) {
+            DB.users = JSON.parse(localUsers);
         }
         
-        // Senão, carregar do storage local
-        const keys = ['users', 'transactions', 'budgets', 'goals', 'categories', 'recurringTransactions', 'investments', 'familyMembers', 'currentUser'];
-        for (const key of keys) {
-            try {
-                const result = await window.storage.get(key, false);
-                if (result && result.value) {
-                    DB[key] = JSON.parse(result.value);
-                }
-            } catch (err) {
-                console.log(`Chave ${key} não encontrada`);
-            }
+        if (localCurrentUser) {
+            DB.currentUser = JSON.parse(localCurrentUser);
+        }
+        
+        // Tentar carregar outros dados
+        const localData = {
+            transactions: localStorage.getItem('fincontrol_transactions'),
+            budgets: localStorage.getItem('fincontrol_budgets'),
+            goals: localStorage.getItem('fincontrol_goals'),
+            categories: localStorage.getItem('fincontrol_categories'),
+            investments: localStorage.getItem('fincontrol_investments'),
+            familyMembers: localStorage.getItem('fincontrol_family')
+        };
+        
+        if (localData.transactions) DB.transactions = JSON.parse(localData.transactions);
+        if (localData.budgets) DB.budgets = JSON.parse(localData.budgets);
+        if (localData.goals) DB.goals = JSON.parse(localData.goals);
+        if (localData.categories) DB.categories = JSON.parse(localData.categories);
+        if (localData.investments) DB.investments = JSON.parse(localData.investments);
+        if (localData.familyMembers) DB.familyMembers = JSON.parse(localData.familyMembers);
+        
+        // Se Supabase estiver configurado e houver usuário, carregar de lá também
+        if (supabaseClient && DB.currentUser) {
+            await loadFromSupabase();
         }
         
         // Inicializar categorias padrão se não existirem
@@ -99,8 +126,15 @@ async function loadData() {
             }));
             await saveData();
         }
+        
+        console.log('Dados carregados:', {
+            users: DB.users.length,
+            currentUser: DB.currentUser ? DB.currentUser.email : 'nenhum',
+            transactions: DB.transactions.length
+        });
+        
     } catch (err) {
-        console.log('Primeira inicialização');
+        console.error('Erro ao carregar dados:', err);
     }
 }
 
@@ -190,18 +224,31 @@ async function loadFromSupabase() {
 
 async function saveData() {
     try {
-        // Salvar localmente sempre
-        await window.storage.set('users', JSON.stringify(DB.users), false);
-        await window.storage.set('transactions', JSON.stringify(DB.transactions), false);
-        await window.storage.set('budgets', JSON.stringify(DB.budgets), false);
-        await window.storage.set('goals', JSON.stringify(DB.goals), false);
-        await window.storage.set('categories', JSON.stringify(DB.categories), false);
-        await window.storage.set('recurringTransactions', JSON.stringify(DB.recurringTransactions), false);
-        await window.storage.set('investments', JSON.stringify(DB.investments), false);
-        await window.storage.set('familyMembers', JSON.stringify(DB.familyMembers), false);
+        // SEMPRE salvar no localStorage (mais confiável)
+        localStorage.setItem('fincontrol_users', JSON.stringify(DB.users));
+        localStorage.setItem('fincontrol_transactions', JSON.stringify(DB.transactions));
+        localStorage.setItem('fincontrol_budgets', JSON.stringify(DB.budgets));
+        localStorage.setItem('fincontrol_goals', JSON.stringify(DB.goals));
+        localStorage.setItem('fincontrol_categories', JSON.stringify(DB.categories));
+        localStorage.setItem('fincontrol_investments', JSON.stringify(DB.investments));
+        localStorage.setItem('fincontrol_family', JSON.stringify(DB.familyMembers));
+        
         if (DB.currentUser) {
-            await window.storage.set('currentUser', JSON.stringify(DB.currentUser), false);
+            localStorage.setItem('fincontrol_current_user', JSON.stringify(DB.currentUser));
         }
+        
+        // Também salvar no window.storage como backup
+        try {
+            await window.storage.set('users', JSON.stringify(DB.users), false);
+            await window.storage.set('currentUser', JSON.stringify(DB.currentUser), false);
+        } catch (err) {
+            console.log('Storage backup falhou, mas localStorage está OK');
+        }
+        
+        console.log('Dados salvos com sucesso!', {
+            users: DB.users.length,
+            currentUser: DB.currentUser ? DB.currentUser.email : 'nenhum'
+        });
         
         // Se Supabase estiver configurado e autoSync ativo, sincronizar
         if (supabaseClient && supabaseConfig.autoSync && DB.currentUser) {
@@ -338,22 +385,33 @@ async function handleLogin(e) {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
 
+    console.log('Tentando login com:', email);
+    console.log('Usuários disponíveis:', DB.users.length);
+
     // Verificar no storage local primeiro
     const user = DB.users.find(u => u.email === email && atob(u.password) === password);
 
     if (!user) {
         showAlert('login-error', 'Email ou senha incorretos');
+        console.log('Login falhou - credenciais inválidas');
         return;
     }
 
+    console.log('Login bem-sucedido!', user.email);
+
     DB.currentUser = user;
+    
+    // SALVAR IMEDIATAMENTE
     await saveData();
+    
+    console.log('Usuário atual salvo:', DB.currentUser.email);
     
     // Carregar dados do Supabase se configurado
     if (supabaseClient) {
         await loadFromSupabase();
     }
     
+    hideAlert('login-error');
     showMainApp();
 }
 
@@ -394,6 +452,12 @@ async function handleRegister(e) {
 
     DB.users.push(newUser);
     
+    // SALVAR IMEDIATAMENTE
+    await saveData();
+    
+    console.log('Usuário registrado:', email);
+    console.log('Total de usuários:', DB.users.length);
+    
     // Salvar no Supabase se configurado
     if (supabaseClient) {
         try {
@@ -403,16 +467,16 @@ async function handleRegister(e) {
                 email: newUser.email,
                 created_at: newUser.createdAt
             }]);
+            console.log('Usuário salvo no Supabase');
         } catch (err) {
             console.log('Erro ao salvar usuário no Supabase:', err);
         }
     }
     
-    await saveData();
-    
     showAlert('register-success', 'Conta criada com sucesso! Faça login para continuar.');
     
     setTimeout(() => {
+        hideAlert('register-success');
         document.getElementById('register-page').classList.add('hidden');
         document.getElementById('login-page').classList.remove('hidden');
         document.getElementById('register-form').reset();
@@ -421,8 +485,17 @@ async function handleRegister(e) {
 
 async function handleLogout() {
     if (confirm('Deseja realmente sair?')) {
+        // Limpar apenas o usuário atual, MAS manter os dados salvos
         DB.currentUser = null;
-        await window.storage.delete('currentUser', false);
+        
+        // Remover apenas currentUser do storage
+        localStorage.removeItem('fincontrol_current_user');
+        
+        try {
+            await window.storage.delete('currentUser', false);
+        } catch (err) {
+            console.log('Erro ao limpar storage:', err);
+        }
         
         // Resetar interface
         document.getElementById('main-app').classList.add('hidden');
@@ -432,7 +505,7 @@ async function handleLogout() {
         // Limpar formulários
         document.getElementById('login-form').reset();
         
-        console.log('Logout realizado com sucesso');
+        console.log('Logout realizado - dados mantidos, usuário deslogado');
     }
 }
 
