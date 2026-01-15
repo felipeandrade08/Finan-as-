@@ -224,7 +224,7 @@ async function loadFromSupabase() {
 
 async function saveData() {
     try {
-        // SEMPRE salvar no localStorage (mais confiável)
+        // SALVAR APENAS NO LOCALSTORAGE (confiável e sempre disponível)
         localStorage.setItem('fincontrol_users', JSON.stringify(DB.users));
         localStorage.setItem('fincontrol_transactions', JSON.stringify(DB.transactions));
         localStorage.setItem('fincontrol_budgets', JSON.stringify(DB.budgets));
@@ -237,15 +237,7 @@ async function saveData() {
             localStorage.setItem('fincontrol_current_user', JSON.stringify(DB.currentUser));
         }
         
-        // Também salvar no window.storage como backup
-        try {
-            await window.storage.set('users', JSON.stringify(DB.users), false);
-            await window.storage.set('currentUser', JSON.stringify(DB.currentUser), false);
-        } catch (err) {
-            console.log('Storage backup falhou, mas localStorage está OK');
-        }
-        
-        console.log('Dados salvos com sucesso!', {
+        console.log('✅ Dados salvos com sucesso!', {
             users: DB.users.length,
             currentUser: DB.currentUser ? DB.currentUser.email : 'nenhum'
         });
@@ -255,7 +247,7 @@ async function saveData() {
             await syncWithSupabase();
         }
     } catch (err) {
-        console.error('Erro ao salvar:', err);
+        console.error('❌ Erro ao salvar:', err);
     }
 }
 
@@ -488,14 +480,8 @@ async function handleLogout() {
         // Limpar apenas o usuário atual, MAS manter os dados salvos
         DB.currentUser = null;
         
-        // Remover apenas currentUser do storage
+        // Remover apenas currentUser do localStorage
         localStorage.removeItem('fincontrol_current_user');
-        
-        try {
-            await window.storage.delete('currentUser', false);
-        } catch (err) {
-            console.log('Erro ao limpar storage:', err);
-        }
         
         // Resetar interface
         document.getElementById('main-app').classList.add('hidden');
@@ -505,7 +491,7 @@ async function handleLogout() {
         // Limpar formulários
         document.getElementById('login-form').reset();
         
-        console.log('Logout realizado - dados mantidos, usuário deslogado');
+        console.log('✅ Logout realizado - dados mantidos, usuário deslogado');
     }
 }
 
@@ -1630,13 +1616,13 @@ function toggleTheme() {
 
 // Supabase Integration
 async function initializeSupabaseOnLoad() {
-    // Tentar carregar config salva
+    // Tentar carregar config salva do localStorage
     try {
-        const config = await window.storage.get('supabase-config', false);
-        if (config && config.value) {
-            const savedConfig = JSON.parse(config.value);
-            if (savedConfig.url && savedConfig.key) {
-                supabaseConfig = savedConfig;
+        const savedConfig = localStorage.getItem('fincontrol_supabase_config');
+        if (savedConfig) {
+            const config = JSON.parse(savedConfig);
+            if (config.url && config.key) {
+                supabaseConfig = config;
             }
         }
     } catch (err) {
@@ -1659,9 +1645,9 @@ async function initializeSupabaseOnLoad() {
 
 async function loadSupabaseConfig() {
     try {
-        const config = await window.storage.get('supabase-config', false);
-        if (config && config.value) {
-            supabaseConfig = JSON.parse(config.value);
+        const savedConfig = localStorage.getItem('fincontrol_supabase_config');
+        if (savedConfig) {
+            supabaseConfig = JSON.parse(savedConfig);
             document.getElementById('supabase-url').value = supabaseConfig.url || '';
             document.getElementById('supabase-key').value = supabaseConfig.key || '';
             document.getElementById('auto-sync-toggle').checked = supabaseConfig.autoSync || false;
@@ -1687,7 +1673,8 @@ async function handleSaveSupabase() {
     supabaseConfig.url = url;
     supabaseConfig.key = key;
     
-    await window.storage.set('supabase-config', JSON.stringify(supabaseConfig), false);
+    // Salvar no localStorage
+    localStorage.setItem('fincontrol_supabase_config', JSON.stringify(supabaseConfig));
     
     initializeSupabase();
     showAlert('supabase-success', 'Configuração salva com sucesso!');
@@ -1823,7 +1810,7 @@ async function handleManualSync() {
 
 async function handleAutoSyncToggle(e) {
     supabaseConfig.autoSync = e.target.checked;
-    await window.storage.set('supabase-config', JSON.stringify(supabaseConfig), false);
+    localStorage.setItem('fincontrol_supabase_config', JSON.stringify(supabaseConfig));
     
     if (supabaseConfig.autoSync && supabaseClient) {
         showAlert('supabase-success', 'Sincronização automática ativada!');
