@@ -15,7 +15,7 @@ const DB = {
 let supabaseClient = null;
 let supabaseConfig = {
     url: 'https://nnhrpvwyawjzzgnwbxpy.supabase.co',
-    key: 'sb_publishable_yKQLUlTSggZqfVM9d2JPLQ_sMo7U80B',
+    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uaHJwdnd5YXdqenpnbndieHB5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgyNjM0MjksImV4cCI6MjA4MzgzOTQyOX0.6ITiSW88PFl5sE9Aoslxw2wqVr8teO4ue3AqaeweNXw',
     autoSync: false
 };
 
