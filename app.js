@@ -40,6 +40,9 @@ let deferredPrompt;
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', async () => {
+    // Carregar tema ANTES de tudo
+    loadTheme();
+    
     await loadData();
     setupEventListeners();
     
@@ -130,7 +133,10 @@ function setupEventListeners() {
         });
     });
 
-    document.querySelector('.logout-btn').addEventListener('click', handleLogout);
+    const logoutBtn = document.querySelector('.logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+    }
 
     // Forms
     document.getElementById('transaction-form').addEventListener('submit', handleAddTransaction);
@@ -166,7 +172,11 @@ function setupEventListeners() {
     document.getElementById('install-pwa-btn').addEventListener('click', handleInstallPWA);
 
     // Theme toggle
-    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', toggleTheme);
+    }
+    
     document.querySelectorAll('.theme-option').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const theme = e.currentTarget.dataset.theme;
@@ -206,8 +216,7 @@ function setupEventListeners() {
     // Processar transações recorrentes ao carregar
     processRecurringTransactions();
     
-    // Carregar tema salvo
-    loadTheme();
+    // Carregar tema salvo (chamada redundante removida, já carrega no início)
     
     // Carregar config do Supabase
     loadSupabaseConfig();
@@ -279,10 +288,20 @@ async function handleRegister(e) {
 }
 
 async function handleLogout() {
-    DB.currentUser = null;
-    await window.storage.delete('currentUser', false);
-    document.getElementById('main-app').classList.add('hidden');
-    document.getElementById('login-page').classList.remove('hidden');
+    if (confirm('Deseja realmente sair?')) {
+        DB.currentUser = null;
+        await window.storage.delete('currentUser', false);
+        
+        // Resetar interface
+        document.getElementById('main-app').classList.add('hidden');
+        document.getElementById('login-page').classList.remove('hidden');
+        document.getElementById('register-page').classList.add('hidden');
+        
+        // Limpar formulários
+        document.getElementById('login-form').reset();
+        
+        console.log('Logout realizado com sucesso');
+    }
 }
 
 // Navegação
@@ -1359,15 +1378,18 @@ async function handleInstallPWA() {
 
 // Modo Escuro
 function loadTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    setTheme(savedTheme);
+    const savedTheme = localStorage.getItem('fincontrol-theme') || 'light';
+    applyTheme(savedTheme);
 }
 
-function setTheme(theme) {
+function applyTheme(theme) {
     const body = document.body;
     const themeIcon = document.querySelector('#theme-toggle i');
     
-    // Atualizar botões de seleção
+    // Remover classes anteriores
+    body.classList.remove('light-theme', 'dark-theme');
+    
+    // Atualizar botões de seleção de tema (se estiverem na página)
     document.querySelectorAll('.theme-option').forEach(btn => {
         btn.classList.remove('active');
         if (btn.dataset.theme === theme) {
@@ -1377,19 +1399,28 @@ function setTheme(theme) {
     
     if (theme === 'auto') {
         const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        body.className = isDark ? 'dark-theme' : 'light-theme';
+        body.classList.add(isDark ? 'dark-theme' : 'light-theme');
+        if (themeIcon) {
+            themeIcon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        }
     } else {
-        body.className = `${theme}-theme`;
+        body.classList.add(`${theme}-theme`);
+        if (themeIcon) {
+            themeIcon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        }
     }
     
-    themeIcon.className = body.classList.contains('dark-theme') ? 'fas fa-sun' : 'fas fa-moon';
-    localStorage.setItem('theme', theme);
+    localStorage.setItem('fincontrol-theme', theme);
+}
+
+function setTheme(theme) {
+    applyTheme(theme);
 }
 
 function toggleTheme() {
-    const currentTheme = localStorage.getItem('theme') || 'light';
+    const currentTheme = localStorage.getItem('fincontrol-theme') || 'light';
     const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
+    applyTheme(newTheme);
 }
 
 // Supabase Integration
