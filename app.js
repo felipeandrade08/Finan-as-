@@ -13,10 +13,20 @@ const DB = {
 
 // Supabase client instance
 let supabaseClient = null;
+
+// Configuração padrão do Supabase (CONFIGURE COM SUAS CREDENCIAIS)
+const SUPABASE_CONFIG = {
+    // Coloque sua URL do Supabase aqui
+    url: 'https://nnhrpvwyawjzzgnwbxpy.supabase.co', // Ex: https://xxxxx.supabase.co
+    // Coloque sua chave anon/public aqui
+    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uaHJwdnd5YXdqenpnbndieHB5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgyNjM0MjksImV4cCI6MjA4MzgzOTQyOX0.6ITiSW88PFl5sE9Aoslxw2wqVr8teO4ue3AqaeweNXw', // Ex: eyJhbGciOiJIUzI1NI...
+    enabled: true // Mude para true após configurar
+};
+
 let supabaseConfig = {
-    url: 'https://nnhrpvwyawjzzgnwbxpy.supabase.co',
-    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uaHJwdnd5YXdqenpnbndieHB5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgyNjM0MjksImV4cCI6MjA4MzgzOTQyOX0.6ITiSW88PFl5sE9Aoslxw2wqVr8teO4ue3AqaeweNXw',
-    autoSync: false
+    url: SUPABASE_CONFIG.url,
+    key: SUPABASE_CONFIG.key,
+    autoSync: true
 };
 
 // Categorias padrão
@@ -43,6 +53,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Carregar tema ANTES de tudo
     loadTheme();
     
+    // Inicializar Supabase se configurado
+    await initializeSupabaseOnLoad();
+    
     await loadData();
     setupEventListeners();
     
@@ -59,6 +72,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Gerenciamento de dados
 async function loadData() {
     try {
+        // Se Supabase estiver configurado, carregar de lá
+        if (supabaseClient && DB.currentUser) {
+            await loadFromSupabase();
+            return;
+        }
+        
+        // Senão, carregar do storage local
         const keys = ['users', 'transactions', 'budgets', 'goals', 'categories', 'recurringTransactions', 'investments', 'familyMembers', 'currentUser'];
         for (const key of keys) {
             try {
@@ -84,8 +104,93 @@ async function loadData() {
     }
 }
 
+async function loadFromSupabase() {
+    try {
+        console.log('Carregando dados do Supabase...');
+        
+        // Carregar transações
+        const { data: transactions } = await supabaseClient
+            .from('transactions')
+            .select('*')
+            .eq('user_id', DB.currentUser.email);
+        
+        if (transactions) {
+            DB.transactions = transactions.map(t => ({
+                id: t.id,
+                userId: t.user_id,
+                type: t.type,
+                amount: parseFloat(t.amount),
+                category: t.category,
+                date: t.date,
+                description: t.description,
+                createdAt: t.created_at
+            }));
+        }
+        
+        // Carregar orçamentos
+        const { data: budgets } = await supabaseClient
+            .from('budgets')
+            .select('*')
+            .eq('user_id', DB.currentUser.email);
+        
+        if (budgets) {
+            DB.budgets = budgets.map(b => ({
+                id: b.id,
+                userId: b.user_id,
+                category: b.category,
+                amount: parseFloat(b.amount),
+                createdAt: b.created_at
+            }));
+        }
+        
+        // Carregar metas
+        const { data: goals } = await supabaseClient
+            .from('goals')
+            .select('*')
+            .eq('user_id', DB.currentUser.email);
+        
+        if (goals) {
+            DB.goals = goals.map(g => ({
+                id: g.id,
+                userId: g.user_id,
+                name: g.name,
+                targetAmount: parseFloat(g.target_amount),
+                currentAmount: parseFloat(g.current_amount || 0),
+                deadline: g.deadline,
+                createdAt: g.created_at
+            }));
+        }
+        
+        // Carregar investimentos
+        const { data: investments } = await supabaseClient
+            .from('investments')
+            .select('*')
+            .eq('user_id', DB.currentUser.email);
+        
+        if (investments) {
+            DB.investments = investments.map(i => ({
+                id: i.id,
+                userId: i.user_id,
+                name: i.name,
+                type: i.type,
+                amount: parseFloat(i.amount),
+                currentValue: parseFloat(i.current_value),
+                date: i.date,
+                yieldRate: parseFloat(i.yield_rate || 0),
+                createdAt: i.created_at
+            }));
+        }
+        
+        console.log('Dados carregados do Supabase com sucesso!');
+        
+    } catch (err) {
+        console.error('Erro ao carregar do Supabase:', err);
+    }
+}
+
 async function saveData() {
     try {
+        // Salvar localmente sempre
         await window.storage.set('users', JSON.stringify(DB.users), false);
         await window.storage.set('transactions', JSON.stringify(DB.transactions), false);
         await window.storage.set('budgets', JSON.stringify(DB.budgets), false);
@@ -96,6 +201,11 @@ async function saveData() {
         await window.storage.set('familyMembers', JSON.stringify(DB.familyMembers), false);
         if (DB.currentUser) {
             await window.storage.set('currentUser', JSON.stringify(DB.currentUser), false);
+        }
+        
+        // Se Supabase estiver configurado e autoSync ativo, sincronizar
+        if (supabaseClient && supabaseConfig.autoSync && DB.currentUser) {
+            await syncWithSupabase();
         }
     } catch (err) {
         console.error('Erro ao salvar:', err);
@@ -186,7 +296,7 @@ function setupEventListeners() {
 
     // Supabase
     document.getElementById('save-supabase-btn').addEventListener('click', handleSaveSupabase);
-    document.getElementById('manual-sync-btn').addEventListener('click', syncWithSupabase);
+    document.getElementById('manual-sync-btn').addEventListener('click', handleManualSync);
     document.getElementById('auto-sync-toggle').addEventListener('change', handleAutoSyncToggle);
 
     // Investments
@@ -228,6 +338,7 @@ async function handleLogin(e) {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
 
+    // Verificar no storage local primeiro
     const user = DB.users.find(u => u.email === email && atob(u.password) === password);
 
     if (!user) {
@@ -237,6 +348,12 @@ async function handleLogin(e) {
 
     DB.currentUser = user;
     await saveData();
+    
+    // Carregar dados do Supabase se configurado
+    if (supabaseClient) {
+        await loadFromSupabase();
+    }
+    
     showMainApp();
 }
 
@@ -276,6 +393,21 @@ async function handleRegister(e) {
     };
 
     DB.users.push(newUser);
+    
+    // Salvar no Supabase se configurado
+    if (supabaseClient) {
+        try {
+            await supabaseClient.from('users').insert([{
+                id: newUser.id,
+                name: newUser.name,
+                email: newUser.email,
+                created_at: newUser.createdAt
+            }]);
+        } catch (err) {
+            console.log('Erro ao salvar usuário no Supabase:', err);
+        }
+    }
+    
     await saveData();
     
     showAlert('register-success', 'Conta criada com sucesso! Faça login para continuar.');
@@ -1424,6 +1556,34 @@ function toggleTheme() {
 }
 
 // Supabase Integration
+async function initializeSupabaseOnLoad() {
+    // Tentar carregar config salva
+    try {
+        const config = await window.storage.get('supabase-config', false);
+        if (config && config.value) {
+            const savedConfig = JSON.parse(config.value);
+            if (savedConfig.url && savedConfig.key) {
+                supabaseConfig = savedConfig;
+            }
+        }
+    } catch (err) {
+        console.log('Config do Supabase não encontrada');
+    }
+    
+    // Se há configuração padrão no código, usar ela
+    if (SUPABASE_CONFIG.enabled && SUPABASE_CONFIG.url && SUPABASE_CONFIG.key) {
+        supabaseConfig.url = SUPABASE_CONFIG.url;
+        supabaseConfig.key = SUPABASE_CONFIG.key;
+    }
+    
+    // Inicializar se houver URL e Key
+    if (supabaseConfig.url && supabaseConfig.key && 
+        supabaseConfig.url !== 'SUA_URL_SUPABASE_AQUI' && 
+        supabaseConfig.key !== 'SUA_CHAVE_SUPABASE_AQUI') {
+        initializeSupabase();
+    }
+}
+
 async function loadSupabaseConfig() {
     try {
         const config = await window.storage.get('supabase-config', false);
@@ -1477,58 +1637,103 @@ function initializeSupabase() {
 
 async function syncWithSupabase() {
     if (!supabaseClient) {
-        showAlert('supabase-error', 'Configure o Supabase primeiro');
+        console.log('Supabase não configurado, pulando sincronização');
         return;
     }
     
     try {
-        const btn = document.getElementById('manual-sync-btn');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
+        console.log('Sincronizando com Supabase...');
+        
+        const userId = DB.currentUser.email;
         
         // Sincronizar transações
         const userTransactions = getUserTransactions();
         for (const transaction of userTransactions) {
             await supabaseClient.from('transactions').upsert({
-                ...transaction,
-                user_id: DB.currentUser.id,
+                id: transaction.id,
+                user_id: userId,
+                type: transaction.type,
+                amount: transaction.amount,
+                category: transaction.category,
+                date: transaction.date,
+                description: transaction.description,
+                created_at: transaction.createdAt,
                 synced_at: new Date().toISOString()
-            });
+            }, { onConflict: 'id' });
         }
         
         // Sincronizar orçamentos
         const userBudgets = getUserBudgets();
         for (const budget of userBudgets) {
             await supabaseClient.from('budgets').upsert({
-                ...budget,
-                user_id: DB.currentUser.id,
+                id: budget.id,
+                user_id: userId,
+                category: budget.category,
+                amount: budget.amount,
+                created_at: budget.createdAt,
                 synced_at: new Date().toISOString()
-            });
+            }, { onConflict: 'id' });
         }
         
         // Sincronizar metas
         const userGoals = getUserGoals();
         for (const goal of userGoals) {
             await supabaseClient.from('goals').upsert({
-                ...goal,
-                user_id: DB.currentUser.id,
+                id: goal.id,
+                user_id: userId,
+                name: goal.name,
+                target_amount: goal.targetAmount,
+                current_amount: goal.currentAmount,
+                deadline: goal.deadline,
+                created_at: goal.createdAt,
                 synced_at: new Date().toISOString()
-            });
+            }, { onConflict: 'id' });
         }
         
         // Sincronizar investimentos
         const userInvestments = getUserInvestments();
         for (const investment of userInvestments) {
             await supabaseClient.from('investments').upsert({
-                ...investment,
-                user_id: DB.currentUser.id,
+                id: investment.id,
+                user_id: userId,
+                name: investment.name,
+                type: investment.type,
+                amount: investment.amount,
+                current_value: investment.currentValue,
+                date: investment.date,
+                yield_rate: investment.yieldRate,
+                created_at: investment.createdAt,
                 synced_at: new Date().toISOString()
-            });
+            }, { onConflict: 'id' });
         }
         
         const now = new Date().toLocaleString('pt-BR');
-        document.getElementById('last-sync').textContent = `Última sincronização: ${now}`;
+        const lastSyncEl = document.getElementById('last-sync');
+        if (lastSyncEl) {
+            lastSyncEl.textContent = `Última sincronização: ${now}`;
+        }
         localStorage.setItem('last-sync', now);
+        
+        console.log('Sincronização concluída com sucesso!');
+        
+    } catch (err) {
+        console.error('Erro na sincronização:', err);
+        throw err;
+    }
+}
+
+async function handleManualSync() {
+    if (!supabaseClient) {
+        showAlert('supabase-error', 'Configure o Supabase primeiro');
+        return;
+    }
+    
+    const btn = document.getElementById('manual-sync-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
+    
+    try {
+        await syncWithSupabase();
         
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-sync-alt"></i> Sincronizar Agora';
@@ -1537,12 +1742,9 @@ async function syncWithSupabase() {
         setTimeout(() => hideAlert('supabase-success'), 3000);
         
     } catch (err) {
-        console.error('Erro na sincronização:', err);
-        showAlert('supabase-error', 'Erro ao sincronizar: ' + err.message);
-        
-        const btn = document.getElementById('manual-sync-btn');
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-sync-alt"></i> Sincronizar Agora';
+        showAlert('supabase-error', 'Erro ao sincronizar: ' + err.message);
     }
 }
 
