@@ -8,6 +8,8 @@ const DB = {
     recurringTransactions: [],
     investments: [],
     familyMembers: [],
+    creditCards: [],
+    monthlyBills: [],
     currentUser: null
 };
 
@@ -20,7 +22,7 @@ const SUPABASE_CONFIG = {
     url: 'https://nnhrpvwyawjzzgnwbxpy.supabase.co', // Ex: https://xxxxx.supabase.co
     // Coloque sua chave anon/public aqui
     key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uaHJwdnd5YXdqenpnbndieHB5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgyNjM0MjksImV4cCI6MjA4MzgzOTQyOX0.6ITiSW88PFl5sE9Aoslxw2wqVr8teO4ue3AqaeweNXw', // Ex: eyJhbGciOiJIUzI1NI...
-    enabled: true // Mude para true após configurar
+    enabled: false // Mude para true após configurar
 };
 
 let supabaseConfig = {
@@ -112,6 +114,12 @@ async function loadData() {
         if (localData.categories) DB.categories = JSON.parse(localData.categories);
         if (localData.investments) DB.investments = JSON.parse(localData.investments);
         if (localData.familyMembers) DB.familyMembers = JSON.parse(localData.familyMembers);
+        
+        // Carregar cartões e contas
+        const creditCards = localStorage.getItem('fincontrol_credit_cards');
+        const monthlyBills = localStorage.getItem('fincontrol_monthly_bills');
+        if (creditCards) DB.creditCards = JSON.parse(creditCards);
+        if (monthlyBills) DB.monthlyBills = JSON.parse(monthlyBills);
         
         // Se Supabase estiver configurado e houver usuário, carregar de lá também
         if (supabaseClient && DB.currentUser) {
@@ -232,6 +240,9 @@ async function saveData() {
         localStorage.setItem('fincontrol_categories', JSON.stringify(DB.categories));
         localStorage.setItem('fincontrol_investments', JSON.stringify(DB.investments));
         localStorage.setItem('fincontrol_family', JSON.stringify(DB.familyMembers));
+        localStorage.setItem('fincontrol_credit_cards', JSON.stringify(DB.creditCards));
+        localStorage.setItem('fincontrol_monthly_bills', JSON.stringify(DB.monthlyBills));
+        localStorage.setItem('fincontrol_recurring', JSON.stringify(DB.recurringTransactions));
         
         if (DB.currentUser) {
             localStorage.setItem('fincontrol_current_user', JSON.stringify(DB.currentUser));
@@ -343,6 +354,12 @@ function setupEventListeners() {
 
     // Family
     document.getElementById('invite-family-btn').addEventListener('click', handleInviteFamily);
+
+    // Credit Cards
+    document.getElementById('credit-card-form').addEventListener('submit', handleAddCreditCard);
+
+    // Monthly Bills
+    document.getElementById('bill-form').addEventListener('submit', handleAddBill);
 
     // PWA prompt
     window.addEventListener('beforeinstallprompt', (e) => {
@@ -569,6 +586,9 @@ async function handleAddTransaction(e) {
 
     DB.transactions.push(transaction);
     
+    console.log('Transação adicionada:', transaction);
+    console.log('Total de transações:', DB.transactions.length);
+    
     // Se for recorrente, criar registro de recorrência
     if (isRecurring) {
         const frequency = document.getElementById('recurring-frequency').value;
@@ -589,8 +609,10 @@ async function handleAddTransaction(e) {
         };
         
         DB.recurringTransactions.push(recurringTransaction);
+        console.log('Transação recorrente criada:', recurringTransaction);
     }
     
+    // SALVAR IMEDIATAMENTE
     await saveData();
     
     showAlert('transaction-success', 'Transação adicionada com sucesso!');
@@ -598,6 +620,11 @@ async function handleAddTransaction(e) {
     document.getElementById('recurring-options').classList.add('hidden');
     updateTransactionsList();
     loadCategories();
+    
+    // Atualizar dashboard se estiver visível
+    if (document.getElementById('dashboard-page').classList.contains('hidden') === false) {
+        updateDashboard();
+    }
     
     setTimeout(() => hideAlert('transaction-success'), 3000);
 }
@@ -1999,7 +2026,371 @@ function getUserInvestments() {
     return DB.investments.filter(i => i.userId === DB.currentUser.id);
 }
 
-// Compartilhamento Familiar
+// Cartões de Crédito
+async function handleAddCreditCard(e) {
+    e.preventDefault();
+    
+    const cardName = document.getElementById('card-name').value;
+    const description = document.getElementById('card-description').value;
+    const amount = parseFloat(document.getElementById('card-amount').value);
+    const date = document.getElementById('card-date').value;
+    const installments = parseInt(document.getElementById('card-installments').value);
+    const category = document.getElementById('card-category').value;
+    
+    if (!cardName || !description || !amount || !date) {
+        showAlert('card-error', 'Preencha todos os campos obrigatórios');
+        return;
+    }
+    
+    const installmentValue = amount / installments;
+    
+    const creditCard = {
+        id: Date.now(),
+        userId: DB.currentUser.id,
+        cardName,
+        description,
+        totalAmount: amount,
+        installments,
+        installmentValue,
+        paidInstallments: 0,
+        category,
+        purchaseDate: date,
+        createdAt: new Date().toISOString()
+    };
+    
+    DB.creditCards.push(creditCard);
+    await saveData();
+    
+    showAlert('card-success', 'Compra no cartão adicionada com sucesso!');
+    document.getElementById('credit-card-form').reset();
+    updateCreditCardsList();
+    
+    setTimeout(() => hideAlert('card-success'), 3000);
+}
+
+function updateCreditCardsList() {
+    const container = document.getElementById('credit-cards-list');
+    const cards = getUserCreditCards();
+    
+    if (cards.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-credit-card"></i>
+                <p>Nenhuma compra no cartão registrada</p>
+            </div>
+        `;
+        updateCardsSummary();
+        return;
+    }
+    
+    container.innerHTML = cards.map(card => {
+        const remaining = card.installments - card.paidInstallments;
+        const progress = (card.paidInstallments / card.installments) * 100;
+        
+        return `
+            <div class="card-purchase-item" style="padding: 20px; background: var(--gray-50); border-radius: 12px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                    <div style="flex: 1;">
+                        <h4 style="font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">
+                            ${card.description}
+                        </h4>
+                        <p style="color: var(--text-secondary); font-size: 14px;">
+                            ${card.cardName} • ${card.category}
+                        </p>
+                    </div>
+                    <div style="text-align: right;">
+                        <p style="font-size: 24px; font-weight: 800; color: var(--danger);">
+                            R$ ${card.totalAmount.toFixed(2)}
+                        </p>
+                        <p style="font-size: 12px; color: var(--text-secondary);">
+                            ${card.installments}x de R$ ${card.installmentValue.toFixed(2)}
+                        </p>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px;">
+                        <span style="color: var(--text-secondary);">Progresso</span>
+                        <span style="font-weight: 700; color: var(--primary);">
+                            ${card.paidInstallments}/${card.installments} pagas
+                        </span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill ${progress >= 100 ? 'success' : 'warning'}" 
+                             style="width: ${progress}%"></div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 14px; color: var(--text-secondary);">
+                        ${remaining} parcelas restantes
+                    </span>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="payInstallment(${card.id})" 
+                                class="btn btn-primary" 
+                                style="padding: 6px 16px; font-size: 13px;"
+                                ${card.paidInstallments >= card.installments ? 'disabled' : ''}>
+                            <i class="fas fa-check"></i> Pagar Parcela
+                        </button>
+                        <button onclick="deleteCreditCard(${card.id})" 
+                                class="category-delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    updateCardsSummary();
+    updateNextInvoices();
+}
+
+function updateCardsSummary() {
+    const container = document.getElementById('cards-summary');
+    const cards = getUserCreditCards();
+    
+    const totalDebt = cards.reduce((sum, card) => {
+        const remaining = card.installments - card.paidInstallments;
+        return sum + (card.installmentValue * remaining);
+    }, 0);
+    
+    const thisMonthInvoice = cards.reduce((sum, card) => {
+        if (card.paidInstallments < card.installments) {
+            return sum + card.installmentValue;
+        }
+        return sum;
+    }, 0);
+    
+    container.innerHTML = `
+        <div class="investment-summary">
+            <div class="summary-item">
+                <span class="summary-label">Dívida Total</span>
+                <span class="summary-value danger">R$ ${totalDebt.toFixed(2)}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Fatura deste Mês</span>
+                <span class="summary-value">R$ ${thisMonthInvoice.toFixed(2)}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Compras Ativas</span>
+                <span class="summary-value">${cards.filter(c => c.paidInstallments < c.installments).length}</span>
+            </div>
+        </div>
+    `;
+}
+
+function updateNextInvoices() {
+    const container = document.getElementById('next-invoices');
+    const cards = getUserCreditCards();
+    
+    // Agrupar por cartão
+    const cardGroups = {};
+    cards.forEach(card => {
+        if (card.paidInstallments < card.installments) {
+            if (!cardGroups[card.cardName]) {
+                cardGroups[card.cardName] = 0;
+            }
+            cardGroups[card.cardName] += card.installmentValue;
+        }
+    });
+    
+    if (Object.keys(cardGroups).length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">Nenhuma fatura pendente</p>';
+        return;
+    }
+    
+    container.innerHTML = Object.entries(cardGroups).map(([cardName, amount]) => `
+        <div style="padding: 16px; background: var(--gray-50); border-radius: 12px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 600; color: var(--text-primary);">${cardName}</span>
+                <span style="font-weight: 800; font-size: 18px; color: var(--danger);">
+                    R$ ${amount.toFixed(2)}
+                </span>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function payInstallment(id) {
+    const card = DB.creditCards.find(c => c.id === id);
+    if (!card || card.paidInstallments >= card.installments) return;
+    
+    card.paidInstallments++;
+    await saveData();
+    updateCreditCardsList();
+}
+
+async function deleteCreditCard(id) {
+    if (!confirm('Deseja excluir esta compra?')) return;
+    
+    DB.creditCards = DB.creditCards.filter(c => c.id !== id);
+    await saveData();
+    updateCreditCardsList();
+}
+
+function getUserCreditCards() {
+    return DB.creditCards.filter(c => c.userId === DB.currentUser.id);
+}
+
+// Contas Mensais
+async function handleAddBill(e) {
+    e.preventDefault();
+    
+    const type = document.getElementById('bill-type').value;
+    const amount = parseFloat(document.getElementById('bill-amount').value);
+    const dueDay = parseInt(document.getElementById('bill-due-day').value);
+    const notes = document.getElementById('bill-notes').value;
+    
+    if (!type || !amount || !dueDay) {
+        showAlert('bill-error', 'Preencha todos os campos obrigatórios');
+        return;
+    }
+    
+    const bill = {
+        id: Date.now(),
+        userId: DB.currentUser.id,
+        type,
+        amount,
+        dueDay,
+        notes,
+        createdAt: new Date().toISOString()
+    };
+    
+    DB.monthlyBills.push(bill);
+    await saveData();
+    
+    showAlert('bill-success', 'Conta mensal adicionada com sucesso!');
+    document.getElementById('bill-form').reset();
+    updateBillsList();
+    
+    setTimeout(() => hideAlert('bill-success'), 3000);
+}
+
+function updateBillsList() {
+    const container = document.getElementById('bills-list');
+    const bills = getUserBills();
+    
+    if (bills.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-file-invoice-dollar"></i>
+                <p>Nenhuma conta mensal cadastrada</p>
+            </div>
+        `;
+        updateBillsSummary();
+        return;
+    }
+    
+    // Ordenar por dia de vencimento
+    bills.sort((a, b) => a.dueDay - b.dueDay);
+    
+    container.innerHTML = bills.map(bill => `
+        <div style="padding: 20px; background: var(--gray-50); border-radius: 12px; margin-bottom: 12px; border-left: 4px solid var(--danger);">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="flex: 1;">
+                    <h4 style="font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">
+                        ${bill.type}
+                    </h4>
+                    <p style="font-size: 14px; color: var(--text-secondary);">
+                        Vence dia ${bill.dueDay} de cada mês
+                    </p>
+                    ${bill.notes ? `<p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">${bill.notes}</p>` : ''}
+                </div>
+                <div style="text-align: right; display: flex; align-items: center; gap: 16px;">
+                    <div>
+                        <p style="font-size: 24px; font-weight: 800; color: var(--danger);">
+                            R$ ${bill.amount.toFixed(2)}
+                        </p>
+                        <p style="font-size: 12px; color: var(--text-secondary);">por mês</p>
+                    </div>
+                    <button onclick="deleteBill(${bill.id})" class="category-delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    updateBillsSummary();
+    updateBillsCalendar();
+}
+
+function updateBillsSummary() {
+    const bills = getUserBills();
+    const total = bills.reduce((sum, bill) => sum + bill.amount, 0);
+    
+    document.getElementById('total-bills').textContent = `R$ ${total.toFixed(2)}`;
+    document.getElementById('bills-count').textContent = bills.length;
+}
+
+function updateBillsCalendar() {
+    const container = document.getElementById('bills-calendar');
+    const bills = getUserBills();
+    const now = new Date();
+    const currentDay = now.getDate();
+    
+    if (bills.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">Nenhuma conta cadastrada</p>';
+        return;
+    }
+    
+    // Separar contas vencidas, próximas e futuras
+    const overdue = bills.filter(b => b.dueDay < currentDay);
+    const upcoming = bills.filter(b => b.dueDay >= currentDay && b.dueDay <= currentDay + 7);
+    const later = bills.filter(b => b.dueDay > currentDay + 7);
+    
+    let html = '';
+    
+    if (overdue.length > 0) {
+        html += '<div style="margin-bottom: 20px;"><h4 style="color: var(--danger); margin-bottom: 12px;">⚠️ Vencidas este Mês</h4>';
+        html += overdue.map(b => `
+            <div style="padding: 12px; background: #fee2e2; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between;">
+                <span style="font-weight: 600; color: var(--danger);">${b.type}</span>
+                <span style="font-weight: 700; color: var(--danger);">Dia ${b.dueDay} - R$ ${b.amount.toFixed(2)}</span>
+            </div>
+        `).join('');
+        html += '</div>';
+    }
+    
+    if (upcoming.length > 0) {
+        html += '<div style="margin-bottom: 20px;"><h4 style="color: var(--warning); margin-bottom: 12px;">📅 Próximos 7 Dias</h4>';
+        html += upcoming.map(b => `
+            <div style="padding: 12px; background: #fef3c7; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between;">
+                <span style="font-weight: 600; color: var(--warning);">${b.type}</span>
+                <span style="font-weight: 700; color: var(--warning);">Dia ${b.dueDay} - R$ ${b.amount.toFixed(2)}</span>
+            </div>
+        `).join('');
+        html += '</div>';
+    }
+    
+    if (later.length > 0) {
+        html += '<div><h4 style="color: var(--text-secondary); margin-bottom: 12px;">📆 Mais Tarde</h4>';
+        html += later.map(b => `
+            <div style="padding: 12px; background: var(--gray-50); border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between;">
+                <span style="font-weight: 600; color: var(--text-primary);">${b.type}</span>
+                <span style="font-weight: 700; color: var(--text-primary);">Dia ${b.dueDay} - R$ ${b.amount.toFixed(2)}</span>
+            </div>
+        `).join('');
+        html += '</div>';
+    }
+    
+    container.innerHTML = html;
+}
+
+async function deleteBill(id) {
+    if (!confirm('Deseja excluir esta conta?')) return;
+    
+    DB.monthlyBills = DB.monthlyBills.filter(b => b.id !== id);
+    await saveData();
+    updateBillsList();
+}
+
+function getUserBills() {
+    return DB.monthlyBills.filter(b => b.userId === DB.currentUser.id);
+}
+
+// Atualizar navegação
 async function handleInviteFamily() {
     const email = document.getElementById('family-email').value.trim();
     const permission = document.getElementById('family-permission').value;
@@ -2105,6 +2496,12 @@ function navigateTo(page) {
             break;
         case 'investments':
             updateInvestmentsList();
+            break;
+        case 'credit-cards':
+            updateCreditCardsList();
+            break;
+        case 'bills':
+            updateBillsList();
             break;
         case 'family':
             updateFamilyMembersList();
