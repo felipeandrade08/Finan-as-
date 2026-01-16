@@ -152,6 +152,12 @@
                     <button class="nav-item" data-page="investments">
                         <i class="fas fa-chart-line"></i> Investimentos
                     </button>
+                    <button class="nav-item" data-page="credit-cards">
+                        <i class="fas fa-credit-card"></i> Cartões
+                    </button>
+                    <button class="nav-item" data-page="bills">
+                        <i class="fas fa-file-invoice-dollar"></i> Contas Mensais
+                    </button>
                     <button class="nav-item" data-page="family">
                         <i class="fas fa-users"></i> Família
                     </button>
@@ -743,6 +749,174 @@
                 <div class="card">
                     <h3 class="card-title">Meus Investimentos</h3>
                     <div id="investments-list"></div>
+                </div>
+            </div>
+
+            <!-- Credit Cards Page -->
+            <div id="credit-cards-page" class="content-page hidden">
+                <h2 class="page-title">
+                    <i class="fas fa-credit-card"></i> Cartões de Crédito
+                </h2>
+
+                <div class="card">
+                    <h3 class="card-title">Adicionar Compra no Cartão</h3>
+                    <form id="credit-card-form" class="form-grid">
+                        <div class="form-group">
+                            <label>Nome do Cartão *</label>
+                            <input type="text" id="card-name" placeholder="Ex: Nubank, Inter" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Descrição da Compra *</label>
+                            <input type="text" id="card-description" placeholder="Ex: Compra na Amazon" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Valor Total *</label>
+                            <input type="number" id="card-amount" step="0.01" placeholder="0.00" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Data da Compra *</label>
+                            <input type="date" id="card-date" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Número de Parcelas *</label>
+                            <select id="card-installments" required>
+                                <option value="1">À vista</option>
+                                <option value="2">2x</option>
+                                <option value="3">3x</option>
+                                <option value="4">4x</option>
+                                <option value="5">5x</option>
+                                <option value="6">6x</option>
+                                <option value="7">7x</option>
+                                <option value="8">8x</option>
+                                <option value="9">9x</option>
+                                <option value="10">10x</option>
+                                <option value="12">12x</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Categoria</label>
+                            <select id="card-category">
+                                <option value="Compras">Compras</option>
+                                <option value="Alimentação">Alimentação</option>
+                                <option value="Transporte">Transporte</option>
+                                <option value="Lazer">Lazer</option>
+                                <option value="Saúde">Saúde</option>
+                                <option value="Educação">Educação</option>
+                                <option value="Outros">Outros</option>
+                            </select>
+                        </div>
+
+                        <div id="card-error" class="alert alert-error hidden form-full"></div>
+                        <div id="card-success" class="alert alert-success hidden form-full"></div>
+
+                        <button type="submit" class="btn btn-primary form-full">
+                            <i class="fas fa-plus"></i> Adicionar Compra
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Lista de Cartões e Faturas -->
+                <div class="grid-2">
+                    <div class="card">
+                        <h3 class="card-title">Resumo dos Cartões</h3>
+                        <div id="cards-summary"></div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title">Próximas Faturas</h3>
+                        <div id="next-invoices"></div>
+                    </div>
+                </div>
+
+                <!-- Lista de Compras -->
+                <div class="card">
+                    <h3 class="card-title">Compras no Cartão</h3>
+                    <div id="credit-cards-list"></div>
+                </div>
+            </div>
+
+            <!-- Monthly Bills Page -->
+            <div id="bills-page" class="content-page hidden">
+                <h2 class="page-title">
+                    <i class="fas fa-file-invoice-dollar"></i> Contas Mensais
+                </h2>
+
+                <div class="card">
+                    <h3 class="card-title">Adicionar Conta Mensal</h3>
+                    <form id="bill-form" class="form-grid">
+                        <div class="form-group">
+                            <label>Tipo de Conta *</label>
+                            <select id="bill-type" required>
+                                <option value="">Selecione</option>
+                                <option value="Água">💧 Água</option>
+                                <option value="Luz">💡 Luz (Energia)</option>
+                                <option value="Internet">📡 Internet</option>
+                                <option value="Telefone">📱 Telefone</option>
+                                <option value="Gás">🔥 Gás</option>
+                                <option value="Aluguel">🏠 Aluguel</option>
+                                <option value="Condomínio">🏢 Condomínio</option>
+                                <option value="TV/Streaming">📺 TV/Streaming</option>
+                                <option value="Academia">💪 Academia</option>
+                                <option value="Escola">🎓 Escola</option>
+                                <option value="Plano de Saúde">🏥 Plano de Saúde</option>
+                                <option value="Outros">Outros</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Valor Médio *</label>
+                            <input type="number" id="bill-amount" step="0.01" placeholder="0.00" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Dia de Vencimento *</label>
+                            <input type="number" id="bill-due-day" min="1" max="31" placeholder="Ex: 10" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Observações</label>
+                            <input type="text" id="bill-notes" placeholder="Informações adicionais">
+                        </div>
+
+                        <div id="bill-error" class="alert alert-error hidden form-full"></div>
+                        <div id="bill-success" class="alert alert-success hidden form-full"></div>
+
+                        <button type="submit" class="btn btn-primary form-full">
+                            <i class="fas fa-plus"></i> Adicionar Conta
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Resumo de Contas -->
+                <div class="card">
+                    <h3 class="card-title">Total de Contas Mensais</h3>
+                    <div class="investment-summary">
+                        <div class="summary-item">
+                            <span class="summary-label">Total Mensal</span>
+                            <span class="summary-value danger" id="total-bills">R$ 0,00</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Contas Cadastradas</span>
+                            <span class="summary-value" id="bills-count">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de Contas -->
+                <div class="card">
+                    <h3 class="card-title">Minhas Contas Mensais</h3>
+                    <div id="bills-list"></div>
+                </div>
+
+                <!-- Calendário de Vencimentos -->
+                <div class="card">
+                    <h3 class="card-title">Vencimentos deste Mês</h3>
+                    <div id="bills-calendar"></div>
                 </div>
             </div>
 
