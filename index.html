@@ -100,12 +100,35 @@
 
                 <div class="form-group">
                     <label for="register-password">Senha</label>
-                    <input type="password" id="register-password" placeholder="Mínimo 6 caracteres" required>
+                    <div class="password-input-wrapper">
+                        <input type="password" id="register-password" placeholder="Mínimo 8 caracteres" required minlength="8">
+                        <button type="button" class="toggle-password" onclick="togglePassword('register-password', this)">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <div id="password-strength" class="password-strength hidden">
+                        <div class="strength-bar">
+                            <div id="strength-bar-fill" class="strength-bar-fill"></div>
+                        </div>
+                        <p id="strength-text" class="strength-text"></p>
+                    </div>
                 </div>
 
                 <div class="form-group">
                     <label for="register-confirm">Confirmar Senha</label>
-                    <input type="password" id="register-confirm" placeholder="Digite a senha novamente" required>
+                    <div class="password-input-wrapper">
+                        <input type="password" id="register-confirm" placeholder="Digite a senha novamente" required>
+                        <button type="button" class="toggle-password" onclick="togglePassword('register-confirm', this)">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="accept-terms" required>
+                        <span>Aceito os <a href="#" onclick="showTerms(); return false;">Termos de Uso</a> e <a href="#" onclick="showPrivacy(); return false;">Política de Privacidade</a></span>
+                    </label>
                 </div>
 
                 <div id="register-error" class="alert alert-error hidden"></div>
@@ -1033,6 +1056,40 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- Configuração Firebase - SUBSTITUA COM SUAS CREDENCIAIS -->
+    <script>
+        // ⚠️ IMPORTANTE: Substitua estas credenciais pelas suas do Firebase Console
+        const firebaseConfig = {
+            apiKey: "AIzaSyCoiP0n3Pj1-Rbx621Fh4ZX7OlgAfUlYkI",
+  authDomain: "fincontrol-pro-3fd53.firebaseapp.com",
+  projectId: "fincontrol-pro-3fd53",
+  storageBucket: "fincontrol-pro-3fd53.firebasestorage.app",
+  messagingSenderId: "341649708817",
+  appId: "1:341649708817:web:89eb92a333cabac31a1eb0"
+        };
+
+        // Inicializar Firebase
+        try {
+            firebase.initializeApp(firebaseConfig);
+            window.auth = firebase.auth();
+            window.db = firebase.firestore();
+            
+            // Persistência local
+            firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+            
+            console.log('🔥 Firebase inicializado com sucesso!');
+        } catch (error) {
+            console.error('❌ Erro ao inicializar Firebase:', error);
+            alert('Erro ao conectar com Firebase. Verifique suas credenciais.');
+        }
+    </script>
+    
     <script src="app.js"></script>
 </body>
 </html>
