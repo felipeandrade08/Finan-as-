@@ -1471,18 +1471,22 @@ input:checked + .slider:before {
 }
 /* Adicione estes estilos ao seu styles.css existente */
 
-/* ========== CORES ATUALIZADAS (BASEADAS NA LOGO) ========== */
+/* ========== CORES ATUALIZADAS (BASEADAS NA LOGO FINCONTROL PRO) ========== */
 :root {
-    --primary: #2563eb;
-    --primary-dark: #1d4ed8;
-    --primary-light: #3b82f6;
-    --secondary: #10b981;
-    --secondary-dark: #059669;
-    --accent: #f59e0b;
-    --success: #10b981;
+    /* Cores Principais da Logo */
+    --primary: #1e3a8a;
+    --primary-dark: #1e40af;
+    --primary-light: #2563eb;
+    --secondary: #22c55e;
+    --secondary-dark: #16a34a;
+    --accent-orange: #fb923c;
+    --accent-yellow: #fbbf24;
+    --success: #22c55e;
     --danger: #ef4444;
     --warning: #f59e0b;
     --info: #3b82f6;
+    
+    /* Tons de Cinza */
     --gray-50: #f9fafb;
     --gray-100: #f3f4f6;
     --gray-200: #e5e7eb;
@@ -1493,34 +1497,266 @@ input:checked + .slider:before {
     --gray-700: #374151;
     --gray-800: #1f2937;
     --gray-900: #111827;
+    
+    /* Backgrounds e Textos */
     --bg-primary: #ffffff;
     --bg-secondary: #f9fafb;
     --text-primary: #1f2937;
     --text-secondary: #4b5563;
     --border-color: #e5e7eb;
+    
+    /* Gradientes da Logo */
+    --gradient-primary: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    --gradient-secondary: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    --gradient-accent: linear-gradient(135deg, #fb923c 0%, #fbbf24 100%);
 }
 
 /* Dark Theme */
 html.dark-theme,
 body.dark-theme {
-    --gray-50: #1f2937;
-    --gray-100: #374151;
-    --gray-200: #4b5563;
-    --gray-300: #6b7280;
-    --gray-400: #9ca3af;
-    --gray-500: #d1d5db;
-    --gray-600: #e5e7eb;
-    --gray-700: #f3f4f6;
-    --gray-800: #f9fafb;
+    --primary: #3b82f6;
+    --primary-dark: #2563eb;
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --border-color: #334155;
+    --gray-50: #1e293b;
+    --gray-100: #334155;
+    --gray-200: #475569;
+    --gray-300: #64748b;
+    --gray-400: #94a3b8;
+    --gray-500: #cbd5e1;
+    --gray-600: #e2e8f0;
+    --gray-700: #f1f5f9;
+    --gray-800: #f8fafc;
     --gray-900: #ffffff;
-    --bg-primary: #111827;
-    --bg-secondary: #1f2937;
-    --text-primary: #f9fafb;
-    --text-secondary: #d1d5db;
-    --border-color: #374151;
 }
 
-/* ========== ANIMAÇÕES SUAVES ========== */
+/* ========== LOGO E BRANDING ========== */
+.nav-brand,
+.footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-icon {
+    width: 48px;
+    height: 48px;
+    background: transparent;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+}
+
+.brand-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.brand-name {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+}
+
+.brand-name-web {
+    display: inline;
+}
+
+.brand-name-mobile {
+    display: none;
+}
+
+/* Logo específica para auth pages */
+.app-icon {
+    width: 120px;
+    height: 120px;
+    background: transparent;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    box-shadow: 0 10px 30px rgba(30, 58, 138, 0.2);
+    transition: transform 0.3s ease;
+}
+
+.app-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.app-icon:hover {
+    transform: scale(1.05) rotate(2deg);
+}
+
+.app-icon.register-icon {
+    box-shadow: 0 10px 30px rgba(34, 197, 94, 0.2);
+}
+
+/* Mobile logo visibility */
+@media (max-width: 968px) {
+    .brand-name-web {
+        display: none;
+    }
+    
+    .brand-name-mobile {
+        display: inline;
+    }
+    
+    .nav-brand .brand-icon {
+        width: 40px;
+        height: 40px;
+    }
+}
+
+/* ========== NAVBAR ATUALIZADO COM CORES DA LOGO ========== */
+.navbar {
+    background: var(--gradient-primary);
+    box-shadow: 0 4px 16px rgba(30, 58, 138, 0.15);
+    border-bottom: none;
+}
+
+.nav-item {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.nav-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.nav-item.active {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+}
+
+.nav-item.logout-btn {
+    color: #fca5a5;
+}
+
+.nav-item.logout-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* ========== AUTH PAGES COM CORES DA LOGO ========== */
+.auth-background {
+    background: var(--gradient-primary);
+}
+
+.auth-background.register-bg {
+    background: var(--gradient-secondary);
+}
+
+.app-title {
+    font-size: 36px;
+    font-weight: 800;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+}
+
+.register-page .app-title {
+    background: var(--gradient-secondary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ========== BUTTONS COM CORES DA LOGO ========== */
+.btn-primary {
+    background: var(--gradient-primary);
+    color: white;
+    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(30, 58, 138, 0.4);
+}
+
+/* ========== SUMMARY CARDS COM CORES DA LOGO ========== */
+.income-card {
+    background: var(--gradient-secondary);
+}
+
+.expense-card {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.balance-card {
+    background: var(--gradient-primary);
+}
+
+.balance-card.negative {
+    background: var(--gradient-accent);
+}
+
+/* ========== PROGRESS BARS COM CORES DA LOGO ========== */
+.progress-fill.success {
+    background: var(--gradient-secondary);
+}
+
+.progress-fill.warning {
+    background: var(--gradient-accent);
+}
+
+.progress-fill.danger {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+/* ========== LINKS E BADGES ========== */
+.link-button,
+.link-btn {
+    color: var(--primary);
+}
+
+.link-button:hover,
+.link-btn:hover {
+    color: var(--primary-dark);
+}
+
+/* ========== FOOTER COM CORES DA LOGO ========== */
+.footer-brand .brand-icon {
+    background: var(--gradient-primary);
+}
+
+.footer-brand .brand-name {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.footer-dev strong {
+    background: var(--gradient-secondary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.security-badge {
+    background: linear-gradient(135deg, rgba(30, 58, 138, 0.08) 0%, rgba(34, 197, 94, 0.08) 100%);
+    border: 1px solid rgba(30, 58, 138, 0.2);
+}
+
+.security-badge i {
+    color: var(--secondary);
+}
+
+.footer-column a:hover {
+    color: var(--primary);
+}
 @keyframes slideDown {
     from {
         opacity: 0;
