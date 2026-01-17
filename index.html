@@ -294,8 +294,406 @@
                 </div>
             </div>
 
-            <!-- Outras páginas permanecem iguais... (copie do HTML original) -->
-            <!-- Por questão de espaço, vou incluir apenas as páginas modificadas -->
+            <!-- Transactions Page -->
+            <div id="transactions-page" class="content-page hidden">
+                <h2 class="page-title">Lançamentos Financeiros</h2>
+
+                <div class="card">
+                    <h3 class="card-title">
+                        <i class="fas fa-plus-circle"></i> Nova Transação
+                    </h3>
+                    <form id="transaction-form" class="form-grid">
+                        <div class="form-group">
+                            <label>Tipo *</label>
+                            <select id="transaction-type" required>
+                                <option value="">Selecione o tipo</option>
+                                <option value="income">💰 Receita</option>
+                                <option value="expense">💸 Despesa</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Valor *</label>
+                            <input type="number" id="transaction-amount" step="0.01" placeholder="0.00" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Categoria *</label>
+                            <select id="transaction-category" required>
+                                <option value="">Selecione uma categoria</option>
+                            </select>
+                            <button type="button" id="manage-categories-btn" class="link-button" style="margin-top: 4px;">
+                                <i class="fas fa-cog"></i> Gerenciar categorias
+                            </button>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Data *</label>
+                            <input type="date" id="transaction-date" required>
+                        </div>
+
+                        <div class="form-group form-full">
+                            <label>Descrição</label>
+                            <textarea id="transaction-description" rows="3" placeholder="Informações adicionais (opcional)"></textarea>
+                        </div>
+
+                        <div id="transaction-error" class="alert alert-error hidden form-full"></div>
+                        <div id="transaction-success" class="alert alert-success hidden form-full"></div>
+
+                        <button type="submit" class="btn btn-primary form-full">
+                            <i class="fas fa-plus-circle"></i> Adicionar Transação
+                        </button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Histórico Completo</h3>
+                    <div id="transactions-list"></div>
+                </div>
+            </div>
+
+            <!-- Reports Page -->
+            <div id="reports-page" class="content-page hidden">
+                <div class="page-header">
+                    <h2 class="page-title">
+                        <i class="fas fa-chart-bar"></i> Relatórios Financeiros
+                    </h2>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <select id="reports-filter" class="select-filter">
+                            <option value="week">Última semana</option>
+                            <option value="month" selected>Último mês</option>
+                            <option value="year">Último ano</option>
+                            <option value="all">Tudo</option>
+                        </select>
+                        <button id="export-pdf-btn" class="btn btn-primary" style="padding: 10px 16px;">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                        <button id="export-excel-btn" class="btn btn-primary" style="padding: 10px 16px;">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Evolução Temporal</h3>
+                    <canvas id="temporal-chart"></canvas>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <h3 class="card-title">Comparativo Mensal</h3>
+                        <canvas id="comparison-chart"></canvas>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title">Distribuição de Gastos</h3>
+                        <canvas id="distribution-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Budgets Page -->
+            <div id="budgets-page" class="content-page hidden">
+                <h2 class="page-title">
+                    <i class="fas fa-piggy-bank"></i> Orçamentos
+                </h2>
+
+                <div class="card">
+                    <h3 class="card-title">Definir Novo Orçamento</h3>
+                    <form id="budget-form" class="form-grid">
+                        <div class="form-group">
+                            <label>Categoria *</label>
+                            <input type="text" id="budget-category" placeholder="Ex: Alimentação, Transporte" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Valor Mensal *</label>
+                            <input type="number" id="budget-amount" step="0.01" placeholder="0.00" required>
+                        </div>
+
+                        <div id="budget-error" class="alert alert-error hidden form-full"></div>
+                        <div id="budget-success" class="alert alert-success hidden form-full"></div>
+
+                        <button type="submit" class="btn btn-primary form-full">
+                            <i class="fas fa-plus"></i> Adicionar Orçamento
+                        </button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Orçamentos Ativos</h3>
+                    <div id="budgets-list"></div>
+                </div>
+            </div>
+
+            <!-- Goals Page -->
+            <div id="goals-page" class="content-page hidden">
+                <h2 class="page-title">
+                    <i class="fas fa-bullseye"></i> Metas Financeiras
+                </h2>
+
+                <div class="card">
+                    <h3 class="card-title">Criar Nova Meta</h3>
+                    <form id="goal-form" class="form-grid">
+                        <div class="form-group">
+                            <label>Nome da Meta *</label>
+                            <input type="text" id="goal-name" placeholder="Ex: Viagem, Carro novo" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Valor Alvo *</label>
+                            <input type="number" id="goal-amount" step="0.01" placeholder="0.00" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Data Limite *</label>
+                            <input type="date" id="goal-deadline" required>
+                        </div>
+
+                        <div id="goal-error" class="alert alert-error hidden form-full"></div>
+                        <div id="goal-success" class="alert alert-success hidden form-full"></div>
+
+                        <button type="submit" class="btn btn-primary form-full">
+                            <i class="fas fa-plus"></i> Criar Meta
+                        </button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Minhas Metas</h3>
+                    <div id="goals-list"></div>
+                </div>
+            </div>
+
+            <!-- Investments Page -->
+            <div id="investments-page" class="content-page hidden">
+                <h2 class="page-title">
+                    <i class="fas fa-chart-line"></i> Investimentos
+                </h2>
+
+                <div class="card">
+                    <h3 class="card-title">Adicionar Investimento</h3>
+                    <form id="investment-form" class="form-grid">
+                        <div class="form-group">
+                            <label>Nome do Investimento *</label>
+                            <input type="text" id="investment-name" placeholder="Ex: Tesouro Direto, Ações" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Tipo *</label>
+                            <select id="investment-type" required>
+                                <option value="">Selecione</option>
+                                <option value="acoes">Ações</option>
+                                <option value="fundos">Fundos de Investimento</option>
+                                <option value="renda-fixa">Renda Fixa</option>
+                                <option value="tesouro">Tesouro Direto</option>
+                                <option value="cripto">Criptomoedas</option>
+                                <option value="imoveis">Imóveis</option>
+                                <option value="outros">Outros</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Valor Investido *</label>
+                            <input type="number" id="investment-amount" step="0.01" placeholder="0.00" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Valor Atual</label>
+                            <input type="number" id="investment-current" step="0.01" placeholder="0.00">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Data do Investimento *</label>
+                            <input type="date" id="investment-date" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Rendimento Esperado (% a.a.)</label>
+                            <input type="number" id="investment-yield" step="0.01" placeholder="0.00">
+                        </div>
+
+                        <div id="investment-error" class="alert alert-error hidden form-full"></div>
+                        <div id="investment-success" class="alert alert-success hidden form-full"></div>
+
+                        <button type="submit" class="btn btn-primary form-full">
+                            <i class="fas fa-plus"></i> Adicionar Investimento
+                        </button>
+                    </form>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <h3 class="card-title">Resumo Geral</h3>
+                        <div class="investment-summary">
+                            <div class="summary-item">
+                                <span class="summary-label">Total Investido</span>
+                                <span class="summary-value" id="total-invested">R$ 0,00</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Valor Atual</span>
+                                <span class="summary-value" id="total-current">R$ 0,00</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Rendimento</span>
+                                <span class="summary-value success" id="total-profit">R$ 0,00</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">% de Retorno</span>
+                                <span class="summary-value" id="total-return">0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title">Distribuição por Tipo</h3>
+                        <canvas id="investment-distribution-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Meus Investimentos</h3>
+                    <div id="investments-list"></div>
+                </div>
+            </div>
+
+            <!-- Credit Cards Page -->
+            <div id="credit-cards-page" class="content-page hidden">
+                <h2 class="page-title">
+                    <i class="fas fa-credit-card"></i> Cartões de Crédito
+                </h2>
+
+                <div class="card">
+                    <h3 class="card-title">Adicionar Compra no Cartão</h3>
+                    <form id="credit-card-form" class="form-grid">
+                        <div class="form-group">
+                            <label>Nome do Cartão *</label>
+                            <input type="text" id="card-name" placeholder="Ex: Nubank, Inter" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Descrição da Compra *</label>
+                            <input type="text" id="card-description" placeholder="Ex: Compra na Amazon" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Valor Total *</label>
+                            <input type="number" id="card-amount" step="0.01" placeholder="0.00" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Data da Compra *</label>
+                            <input type="date" id="card-date" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Número de Parcelas *</label>
+                            <select id="card-installments" required>
+                                <option value="1">À vista</option>
+                                <option value="2">2x</option>
+                                <option value="3">3x</option>
+                                <option value="4">4x</option>
+                                <option value="5">5x</option>
+                                <option value="6">6x</option>
+                                <option value="7">7x</option>
+                                <option value="8">8x</option>
+                                <option value="9">9x</option>
+                                <option value="10">10x</option>
+                                <option value="12">12x</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Categoria</label>
+                            <select id="card-category">
+                                <option value="Compras">Compras</option>
+                                <option value="Alimentação">Alimentação</option>
+                                <option value="Transporte">Transporte</option>
+                                <option value="Lazer">Lazer</option>
+                                <option value="Saúde">Saúde</option>
+                                <option value="Educação">Educação</option>
+                                <option value="Outros">Outros</option>
+                            </select>
+                        </div>
+
+                        <div id="card-error" class="alert alert-error hidden form-full"></div>
+                        <div id="card-success" class="alert alert-success hidden form-full"></div>
+
+                        <button type="submit" class="btn btn-primary form-full">
+                            <i class="fas fa-plus"></i> Adicionar Compra
+                        </button>
+                    </form>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <h3 class="card-title">Resumo dos Cartões</h3>
+                        <div id="cards-summary"></div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title">Próximas Faturas</h3>
+                        <div id="next-invoices"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Compras no Cartão</h3>
+                    <div id="credit-cards-list"></div>
+                </div>
+            </div>
+
+            <!-- Family Page -->
+            <div id="family-page" class="content-page hidden">
+                <h2 class="page-title">
+                    <i class="fas fa-users"></i> Compartilhamento Familiar
+                </h2>
+
+                <div class="card">
+                    <h3 class="card-title">
+                        <i class="fas fa-user-plus"></i> Convidar Membro da Família
+                    </h3>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Email do Membro *</label>
+                            <input type="email" id="family-email" placeholder="email@exemplo.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Permissão *</label>
+                            <select id="family-permission">
+                                <option value="view">Visualizar apenas</option>
+                                <option value="edit">Visualizar e editar</option>
+                                <option value="admin">Administrador</option>
+                            </select>
+                        </div>
+                        <button id="invite-family-btn" class="btn btn-primary form-full">
+                            <i class="fas fa-paper-plane"></i> Enviar Convite
+                        </button>
+                    </div>
+
+                    <div id="family-success" class="alert alert-success hidden"></div>
+                    <div id="family-error" class="alert alert-error hidden"></div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Membros da Família</h3>
+                    <div id="family-members-list">
+                        <div class="empty-state">
+                            <i class="fas fa-users"></i>
+                            <p>Nenhum membro adicionado ainda</p>
+                            <p style="font-size: 14px; margin-top: 8px;">Convide membros da família para compartilhar finanças</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">
+                        <i class="fas fa-chart-pie"></i> Gastos por Membro
+                    </h3>
+                    <canvas id="family-expenses-chart"></canvas>
+                </div>
+            </div>
 
             <!-- Bills Page -->
             <div id="bills-page" class="content-page hidden">
@@ -501,6 +899,75 @@
                     <div id="backup-success" class="alert alert-success hidden"></div>
                     <div id="backup-error" class="alert alert-error hidden"></div>
                 </div>
+
+                <!-- Contribuir com o Projeto -->
+                <div class="card">
+                    <h3 class="card-title">
+                        <i class="fas fa-heart"></i> Apoie o Projeto
+                    </h3>
+                    
+                    <div class="contribution-section">
+                        <div class="contribution-message">
+                            <i class="fas fa-coffee" style="font-size: 48px; color: var(--primary); margin-bottom: 16px;"></i>
+                            <h4 style="font-size: 20px; font-weight: 700; margin-bottom: 12px;">Gostou do FinControl Pro?</h4>
+                            <p style="color: var(--text-secondary); line-height: 1.6;">
+                                Se este projeto está te ajudando a organizar suas finanças, considere fazer uma contribuição! 
+                                Seu apoio ajuda a manter o desenvolvimento e trazer novas funcionalidades.
+                            </p>
+                        </div>
+
+                        <div class="pix-section">
+                            <h4 style="font-weight: 600; margin-bottom: 16px; text-align: center;">
+                                <i class="fas fa-qrcode"></i> PIX para Contribuir
+                            </h4>
+                            
+                            <div class="pix-qrcode">
+                                <div id="qrcode-container" style="background: white; padding: 20px; border-radius: 12px; display: inline-block;">
+                                    <!-- QR Code será gerado aqui -->
+                                    <div style="width: 200px; height: 200px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 8px;">
+                                        <i class="fas fa-qrcode" style="font-size: 64px; color: #d1d5db;"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pix-key">
+                                <label style="display: block; font-weight: 600; margin-bottom: 8px;">Chave PIX (Copiar e Colar):</label>
+                                <div class="pix-copy-container">
+                                    <input type="text" id="pix-key" value="sua-chave-pix@email.com" readonly style="flex: 1; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px 0 0 8px; font-family: monospace;">
+                                    <button id="copy-pix-btn" class="btn-copy-pix">
+                                        <i class="fas fa-copy"></i> Copiar
+                                    </button>
+                                </div>
+                                <p id="copy-feedback" class="copy-feedback hidden">
+                                    <i class="fas fa-check-circle"></i> Chave PIX copiada!
+                                </p>
+                            </div>
+
+                            <div class="contribution-values">
+                                <p style="text-align: center; color: var(--text-secondary); margin-bottom: 12px; font-size: 14px;">
+                                    Sugestão de valores:
+                                </p>
+                                <div class="value-buttons">
+                                    <button class="value-btn">R$ 5,00</button>
+                                    <button class="value-btn">R$ 10,00</button>
+                                    <button class="value-btn">R$ 20,00</button>
+                                    <button class="value-btn">R$ 50,00</button>
+                                </div>
+                                <p style="text-align: center; color: var(--text-secondary); margin-top: 12px; font-size: 12px;">
+                                    Ou qualquer valor que desejar ❤️
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="contribution-thanks">
+                            <i class="fas fa-handshake" style="font-size: 32px; color: var(--success); margin-bottom: 12px;"></i>
+                            <p style="color: var(--text-secondary); font-size: 14px;">
+                                <strong>Muito obrigado pelo seu apoio!</strong><br>
+                                Cada contribuição faz diferença e motiva o desenvolvimento contínuo.
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
 
@@ -610,6 +1077,22 @@
                 navMenu.classList.remove('active');
                 navbar.classList.remove('menu-open');
             }
+        });
+
+        // PIX Copy functionality
+        document.getElementById('copy-pix-btn')?.addEventListener('click', function() {
+            const pixKey = document.getElementById('pix-key');
+            const feedback = document.getElementById('copy-feedback');
+            
+            pixKey.select();
+            pixKey.setSelectionRange(0, 99999);
+            
+            navigator.clipboard.writeText(pixKey.value).then(() => {
+                feedback.classList.remove('hidden');
+                setTimeout(() => {
+                    feedback.classList.add('hidden');
+                }, 3000);
+            });
         });
     </script>
 </body>
