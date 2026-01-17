@@ -1469,3 +1469,454 @@ input:checked + .slider:before {
         grid-template-columns: 1fr;
     }
 }
+/* Adicione estes estilos ao seu styles.css existente */
+
+/* ========== MOBILE MENU ========== */
+.mobile-menu-toggle {
+    display: none;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1001;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    transition: all 0.3s ease;
+}
+
+.mobile-menu-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+}
+
+@media (max-width: 968px) {
+    .mobile-menu-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .navbar {
+        position: fixed;
+        top: 0;
+        left: -100%;
+        width: 280px;
+        height: 100vh;
+        transition: left 0.3s ease;
+        z-index: 1000;
+        overflow-y: auto;
+    }
+
+    .navbar.menu-open {
+        left: 0;
+    }
+
+    .nav-container {
+        flex-direction: column;
+        padding: 24px 16px;
+    }
+
+    .nav-brand {
+        margin-bottom: 24px;
+        padding-bottom: 24px;
+        border-bottom: 2px solid var(--border-color);
+        width: 100%;
+    }
+
+    .nav-menu {
+        flex-direction: column;
+        width: 100%;
+        gap: 8px;
+    }
+
+    .nav-item {
+        width: 100%;
+        justify-content: flex-start;
+        padding: 14px 16px;
+    }
+
+    .nav-item span {
+        margin-left: 12px;
+    }
+
+    .main-content {
+        padding-top: 80px;
+    }
+}
+
+/* ========== BILLS STATUS ========== */
+.bill-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    background: var(--gray-50);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    border-left: 4px solid var(--gray-300);
+    transition: all 0.3s ease;
+}
+
+.bill-item:hover {
+    background: var(--gray-100);
+    transform: translateX(4px);
+}
+
+.bill-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.bill-status.success {
+    background: #d1fae5;
+    color: var(--success);
+}
+
+.bill-status.danger {
+    background: #fee2e2;
+    color: var(--danger);
+}
+
+.bill-status.warning {
+    background: #fef3c7;
+    color: var(--warning);
+}
+
+.bill-status.info {
+    background: #dbeafe;
+    color: var(--primary);
+}
+
+.btn-mark-paid {
+    padding: 8px 16px;
+    background: var(--success);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-mark-paid:hover {
+    background: #059669;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+/* ========== BILLS CALENDAR ========== */
+.calendar-day-item {
+    background: var(--gray-50);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    border-left: 4px solid var(--primary);
+}
+
+.calendar-day-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.calendar-day-number {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 16px;
+}
+
+.calendar-day-total {
+    font-weight: 700;
+    color: var(--danger);
+    font-size: 18px;
+}
+
+.calendar-day-bills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.calendar-bill-tag {
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.calendar-bill-tag.success {
+    background: #d1fae5;
+    color: var(--success);
+}
+
+.calendar-bill-tag.danger {
+    background: #fee2e2;
+    color: var(--danger);
+}
+
+.calendar-bill-tag.warning {
+    background: #fef3c7;
+    color: var(--warning);
+}
+
+.calendar-bill-tag.info {
+    background: #dbeafe;
+    color: var(--primary);
+}
+
+/* ========== ALERTS CONTAINER ========== */
+#alerts-container {
+    margin-bottom: 24px;
+}
+
+#alerts-container .alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    animation: slideDown 0.3s ease;
+}
+
+#alerts-container .alert i {
+    font-size: 20px;
+    margin-top: 2px;
+}
+
+#alerts-container .alert strong {
+    display: block;
+    margin-bottom: 4px;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ========== FOOTER PROFISSIONAL ========== */
+.footer {
+    background: var(--bg-primary);
+    border-top: 2px solid var(--border-color);
+    margin-top: 64px;
+    padding: 48px 0 24px;
+    transition: all 0.3s ease;
+}
+
+.footer-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 24px 32px;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 48px;
+}
+
+.footer-about {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.footer-brand .brand-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.footer-brand .brand-icon i {
+    font-size: 24px;
+    color: white;
+}
+
+.footer-brand .brand-name {
+    font-size: 24px;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.footer-description {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    max-width: 500px;
+}
+
+.footer-security {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.security-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--gray-50);
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.security-badge i {
+    color: var(--success);
+    font-size: 16px;
+}
+
+.footer-links {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 32px;
+}
+
+.footer-column h4 {
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    font-size: 16px;
+}
+
+.footer-column ul {
+    list-style: none;
+}
+
+.footer-column li {
+    margin-bottom: 12px;
+}
+
+.footer-column a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.3s ease;
+}
+
+.footer-column a:hover {
+    color: var(--primary);
+}
+
+.footer-bottom {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 24px 0;
+    border-top: 2px solid var(--border-color);
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.footer-bottom p {
+    margin-bottom: 8px;
+}
+
+.footer-dev {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.footer-dev strong {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ========== RESPONSIVE FOOTER ========== */
+@media (max-width: 768px) {
+    .footer-container {
+        grid-template-columns: 1fr;
+        gap: 32px;
+    }
+
+    .footer-links {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+
+    .footer-security {
+        flex-direction: column;
+    }
+
+    .security-badge {
+        justify-content: center;
+    }
+}
+
+/* ========== DARK THEME ADJUSTMENTS ========== */
+html.dark-theme .security-badge,
+body.dark-theme .security-badge {
+    background: var(--gray-800);
+}
+
+html.dark-theme .calendar-day-item,
+body.dark-theme .calendar-day-item,
+html.dark-theme .bill-item,
+body.dark-theme .bill-item {
+    background: var(--gray-800);
+}
+
+html.dark-theme .calendar-bill-tag.success,
+body.dark-theme .calendar-bill-tag.success,
+html.dark-theme .bill-status.success,
+body.dark-theme .bill-status.success {
+    background: rgba(16, 185, 129, 0.2);
+}
+
+html.dark-theme .calendar-bill-tag.danger,
+body.dark-theme .calendar-bill-tag.danger,
+html.dark-theme .bill-status.danger,
+body.dark-theme .bill-status.danger {
+    background: rgba(239, 68, 68, 0.2);
+}
+
+html.dark-theme .calendar-bill-tag.warning,
+body.dark-theme .calendar-bill-tag.warning,
+html.dark-theme .bill-status.warning,
+body.dark-theme .bill-status.warning {
+    background: rgba(245, 158, 11, 0.2);
+}
+
+html.dark-theme .calendar-bill-tag.info,
+body.dark-theme .calendar-bill-tag.info,
+html.dark-theme .bill-status.info,
+body.dark-theme .bill-status.info {
+    background: rgba(37, 99, 235, 0.2);
+}
