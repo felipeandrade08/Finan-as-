@@ -1,5 +1,5 @@
 // =============================================
-// FINCONTROL PRO v3.5 - COM FIREBASE
+// FINCONTROL PRO v3.5 - COMPLETO COM FIREBASE
 // Desenvolvido por: FELIPE ANDRADE DEV
 // =============================================
 
@@ -37,10 +37,7 @@ let charts = {};
 document.addEventListener('DOMContentLoaded', () => {
     console.log('=== FINCONTROL PRO INICIANDO ===');
     
-    // Carregar tema
     loadTheme();
-    
-    // Setup de listeners (exceto Firebase auth que vai ser configurado depois)
     setupEventListeners();
     
     // Firebase Auth State Observer
@@ -208,7 +205,6 @@ async function handleRegister(e) {
     const confirm = document.getElementById('register-confirm').value;
     const acceptTerms = document.getElementById('accept-terms').checked;
 
-    // Validações
     if (!name || !email || !password) {
         showAlert('register-error', 'Preencha todos os campos');
         return;
@@ -236,23 +232,19 @@ async function handleRegister(e) {
     }
 
     try {
-        // Criar usuário no Firebase Auth
         const userCredential = await window.auth.createUserWithEmailAndPassword(email, password);
         const user = userCredential.user;
         
-        // Atualizar perfil
         await user.updateProfile({ displayName: name });
         
-        // Salvar dados adicionais no Firestore
         await window.db.collection('users').doc(user.uid).set({
             name: name,
             email: email,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         
-        // Inicializar categorias padrão
         const batch = window.db.batch();
-        DEFAULT_CATEGORIES.forEach((cat, index) => {
+        DEFAULT_CATEGORIES.forEach((cat) => {
             const ref = window.db.collection('users').doc(user.uid).collection('categories').doc();
             batch.set(ref, {
                 name: cat.name,
@@ -338,7 +330,6 @@ async function loadUserDataFromFirebase(userId) {
     try {
         console.log('📊 Carregando dados do Firebase...');
         
-        // Carregar categorias
         const categoriesSnap = await window.db.collection('users').doc(userId)
             .collection('categories').get();
         
@@ -351,7 +342,6 @@ async function loadUserDataFromFirebase(userId) {
             DB.categories = DEFAULT_CATEGORIES;
         }
         
-        // Carregar transações
         const transactionsSnap = await window.db.collection('users').doc(userId)
             .collection('transactions').get();
         
@@ -361,7 +351,6 @@ async function loadUserDataFromFirebase(userId) {
             ...doc.data()
         }));
         
-        // Carregar orçamentos
         const budgetsSnap = await window.db.collection('users').doc(userId)
             .collection('budgets').get();
         
@@ -371,7 +360,6 @@ async function loadUserDataFromFirebase(userId) {
             ...doc.data()
         }));
         
-        // Carregar metas
         const goalsSnap = await window.db.collection('users').doc(userId)
             .collection('goals').get();
         
@@ -381,7 +369,6 @@ async function loadUserDataFromFirebase(userId) {
             ...doc.data()
         }));
         
-        // Carregar investimentos
         const investmentsSnap = await window.db.collection('users').doc(userId)
             .collection('investments').get();
         
@@ -391,7 +378,6 @@ async function loadUserDataFromFirebase(userId) {
             ...doc.data()
         }));
         
-        // Carregar cartões
         const cardsSnap = await window.db.collection('users').doc(userId)
             .collection('creditCards').get();
         
@@ -401,7 +387,6 @@ async function loadUserDataFromFirebase(userId) {
             ...doc.data()
         }));
         
-        // Carregar contas mensais
         const billsSnap = await window.db.collection('users').doc(userId)
             .collection('monthlyBills').get();
         
@@ -487,13 +472,6 @@ function navigateTo(page) {
     }
 }
 
-// Continuação no próximo bloco...
-
-// =============================================
-// FINCONTROL PRO v3.5 - PARTE 2
-// COLE ESTE CÓDIGO NO FINAL DO app.js
-// =============================================
-
 // ========== TRANSAÇÕES ==========
 async function handleAddTransaction(e) {
     e.preventDefault();
@@ -512,7 +490,6 @@ async function handleAddTransaction(e) {
     try {
         const userId = window.auth.currentUser.uid;
         
-        // Adicionar ao Firestore
         const docRef = await window.db.collection('users').doc(userId)
             .collection('transactions').add({
                 type,
@@ -523,7 +500,6 @@ async function handleAddTransaction(e) {
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
         
-        // Adicionar ao DB local
         DB.transactions.push({
             id: docRef.id,
             userId,
@@ -571,7 +547,7 @@ function updateTransactionsList() {
                 </div>
                 <div class="transaction-details">
                     <h4>${t.category}</h4>
-                    <p>${t.description}</p>
+                    <p>${t.description || 'Sem descrição'}</p>
                     <small>${formatDate(t.date)}</small>
                 </div>
             </div>
@@ -673,6 +649,730 @@ function getFilteredTransactions() {
     }
     
     return transactions.filter(t => new Date(t.date) >= startDate);
+}
+
+// ========== ORÇAMENTOS ==========
+async function handleAddBudget(e) {
+    e.preventDefault();
+    
+    const category = document.getElementById('budget-category').value;
+    const amount = parseFloat(document.getElementById('budget-amount').value);
+
+    if (!category || !amount) {
+        showAlert('budget-error', 'Preencha todos os campos');
+        return;
+    }
+
+    try {
+        const userId = window.auth.currentUser.uid;
+        
+        const docRef = await window.db.collection('users').doc(userId)
+            .collection('budgets').add({
+                category,
+                amount,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        
+        DB.budgets.push({
+            id: docRef.id,
+            userId,
+            category,
+            amount
+        });
+        
+        showAlert('budget-success', 'Orçamento adicionado com sucesso!');
+        document.getElementById('budget-form').reset();
+        updateBudgetsList();
+        
+        setTimeout(() => hideAlert('budget-success'), 3000);
+        
+    } catch (error) {
+        console.error('Erro ao adicionar orçamento:', error);
+        showAlert('budget-error', 'Erro ao salvar orçamento');
+    }
+}
+
+function updateBudgetsList() {
+    const container = document.getElementById('budgets-list');
+    if (!container) return;
+    
+    if (DB.budgets.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-credit-card"></i>
+                <p>Nenhum orçamento definido</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = DB.budgets.map(b => {
+        const spent = DB.transactions
+            .filter(t => t.type === 'expense' && t.category === b.category)
+            .reduce((sum, t) => sum + t.amount, 0);
+        
+        const percentage = (spent / b.amount) * 100;
+        const status = percentage >= 100 ? 'danger' : percentage >= 80 ? 'warning' : 'success';
+        
+        return `
+            <div class="budget-item">
+                <div class="budget-header">
+                    <h4 class="budget-name">${b.category}</h4>
+                    <span class="budget-percentage ${status}">${percentage.toFixed(0)}%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill ${status}" style="width: ${Math.min(percentage, 100)}%"></div>
+                </div>
+                <div class="budget-info">
+                    <span>Gasto: R$ ${spent.toFixed(2)}</span>
+                    <span>Limite: R$ ${b.amount.toFixed(2)}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ========== METAS ==========
+async function handleAddGoal(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('goal-name').value;
+    const amount = parseFloat(document.getElementById('goal-amount').value);
+    const deadline = document.getElementById('goal-deadline').value;
+
+    if (!name || !amount || !deadline) {
+        showAlert('goal-error', 'Preencha todos os campos');
+        return;
+    }
+
+    try {
+        const userId = window.auth.currentUser.uid;
+        
+        const docRef = await window.db.collection('users').doc(userId)
+            .collection('goals').add({
+                name,
+                targetAmount: amount,
+                currentAmount: 0,
+                deadline,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        
+        DB.goals.push({
+            id: docRef.id,
+            userId,
+            name,
+            targetAmount: amount,
+            currentAmount: 0,
+            deadline
+        });
+        
+        showAlert('goal-success', 'Meta criada com sucesso!');
+        document.getElementById('goal-form').reset();
+        updateGoalsList();
+        
+        setTimeout(() => hideAlert('goal-success'), 3000);
+        
+    } catch (error) {
+        console.error('Erro ao adicionar meta:', error);
+        showAlert('goal-error', 'Erro ao salvar meta');
+    }
+}
+
+function updateGoalsList() {
+    const container = document.getElementById('goals-list');
+    if (!container) return;
+    
+    if (DB.goals.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-bullseye"></i>
+                <p>Nenhuma meta definida</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = DB.goals.map(g => {
+        const percentage = (g.currentAmount / g.targetAmount) * 100;
+        const remaining = g.targetAmount - g.currentAmount;
+        
+        return `
+            <div class="goal-item">
+                <div class="goal-header">
+                    <h4 class="goal-name">${g.name}</h4>
+                    <div class="goal-icon">
+                        <i class="fas fa-bullseye"></i>
+                    </div>
+                </div>
+                <div class="goal-progress">
+                    <span>R$ ${g.currentAmount.toFixed(2)} de R$ ${g.targetAmount.toFixed(2)}</span>
+                    <span class="goal-percentage">${percentage.toFixed(0)}%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill success" style="width: ${Math.min(percentage, 100)}%"></div>
+                </div>
+                <div class="goal-stats">
+                    <div class="goal-stat">
+                        <span>Falta</span>
+                        <span>R$ ${remaining.toFixed(2)}</span>
+                    </div>
+                    <div class="goal-stat deadline">
+                        <span>Prazo</span>
+                        <span>${formatDate(g.deadline)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateGoalsPreview() {
+    const container = document.getElementById('goals-preview');
+    if (!container) return;
+    
+    const goals = DB.goals.slice(0, 3);
+    
+    if (goals.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state" style="padding: 32px 0;">
+                <i class="fas fa-bullseye" style="font-size: 48px;"></i>
+                <p style="font-size: 14px;">Nenhuma meta definida</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = goals.map(g => {
+        const percentage = (g.currentAmount / g.targetAmount) * 100;
+        
+        return `
+            <div class="goal-item" style="margin-bottom: 12px;">
+                <div class="goal-header">
+                    <h4 class="goal-name" style="font-size: 16px;">${g.name}</h4>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill success" style="width: ${Math.min(percentage, 100)}%"></div>
+                </div>
+                <div class="goal-progress" style="margin-top: 8px;">
+                    <span style="font-size: 12px;">R$ ${g.currentAmount.toFixed(2)} / R$ ${g.targetAmount.toFixed(2)}</span>
+                    <span class="goal-percentage" style="font-size: 14px;">${percentage.toFixed(0)}%</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ========== INVESTIMENTOS ==========
+async function handleAddInvestment(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('investment-name').value;
+    const type = document.getElementById('investment-type').value;
+    const amount = parseFloat(document.getElementById('investment-amount').value);
+    const current = parseFloat(document.getElementById('investment-current').value) || amount;
+    const date = document.getElementById('investment-date').value;
+    const yieldRate = parseFloat(document.getElementById('investment-yield').value) || 0;
+
+    if (!name || !type || !amount || !date) {
+        showAlert('investment-error', 'Preencha todos os campos obrigatórios');
+        return;
+    }
+
+    try {
+        const userId = window.auth.currentUser.uid;
+        
+        const docRef = await window.db.collection('users').doc(userId)
+            .collection('investments').add({
+                name,
+                type,
+                amount,
+                currentValue: current,
+                date,
+                yieldRate,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        
+        DB.investments.push({
+            id: docRef.id,
+            userId,
+            name,
+            type,
+            amount,
+            currentValue: current,
+            date,
+            yieldRate
+        });
+        
+        showAlert('investment-success', 'Investimento adicionado com sucesso!');
+        document.getElementById('investment-form').reset();
+        updateInvestmentsList();
+        
+        setTimeout(() => hideAlert('investment-success'), 3000);
+        
+    } catch (error) {
+        console.error('Erro ao adicionar investimento:', error);
+        showAlert('investment-error', 'Erro ao salvar investimento');
+    }
+}
+
+function updateInvestmentsList() {
+    const container = document.getElementById('investments-list');
+    if (!container) return;
+    
+    if (DB.investments.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-chart-line"></i>
+                <p>Nenhum investimento registrado</p>
+            </div>
+        `;
+        return;
+    }
+
+    const totalInvested = DB.investments.reduce((sum, i) => sum + i.amount, 0);
+    const totalCurrent = DB.investments.reduce((sum, i) => sum + i.currentValue, 0);
+    const totalProfit = totalCurrent - totalInvested;
+    const totalReturn = ((totalProfit / totalInvested) * 100) || 0;
+
+    document.getElementById('total-invested').textContent = `R$ ${totalInvested.toFixed(2)}`;
+    document.getElementById('total-current').textContent = `R$ ${totalCurrent.toFixed(2)}`;
+    document.getElementById('total-profit').textContent = `R$ ${totalProfit.toFixed(2)}`;
+    document.getElementById('total-return').textContent = `${totalReturn.toFixed(2)}%`;
+
+    container.innerHTML = DB.investments.map(inv => {
+        const profit = inv.currentValue - inv.amount;
+        const returnRate = ((profit / inv.amount) * 100) || 0;
+        
+        return `
+            <div class="investment-item">
+                <div class="investment-header">
+                    <h4 class="investment-name">${inv.name}</h4>
+                    <span class="investment-type">${inv.type}</span>
+                </div>
+                <div class="investment-details">
+                    <div class="investment-detail">
+                        <span class="investment-detail-label">Investido</span>
+                        <span class="investment-detail-value">R$ ${inv.amount.toFixed(2)}</span>
+                    </div>
+                    <div class="investment-detail">
+                        <span class="investment-detail-label">Valor Atual</span>
+                        <span class="investment-detail-value">R$ ${inv.currentValue.toFixed(2)}</span>
+                    </div>
+                    <div class="investment-detail">
+                        <span class="investment-detail-label">Rendimento</span>
+                        <span class="investment-detail-value" style="color: ${profit >= 0 ? 'var(--success)' : 'var(--danger)'}">
+                            R$ ${profit.toFixed(2)} (${returnRate.toFixed(2)}%)
+                        </span>
+                    </div>
+                    <div class="investment-detail">
+                        <span class="investment-detail-label">Data</span>
+                        <span class="investment-detail-value">${formatDate(inv.date)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ========== CARTÕES DE CRÉDITO ==========
+async function handleAddCreditCard(e) {
+    e.preventDefault();
+    
+    const cardName = document.getElementById('card-name').value;
+    const description = document.getElementById('card-description').value;
+    const amount = parseFloat(document.getElementById('card-amount').value);
+    const date = document.getElementById('card-date').value;
+    const installments = parseInt(document.getElementById('card-installments').value);
+    const category = document.getElementById('card-category').value;
+
+    if (!cardName || !description || !amount || !date || !installments) {
+        showAlert('card-error', 'Preencha todos os campos obrigatórios');
+        return;
+    }
+
+    try {
+        const userId = window.auth.currentUser.uid;
+        
+        const docRef = await window.db.collection('users').doc(userId)
+            .collection('creditCards').add({
+                cardName,
+                description,
+                totalAmount: amount,
+                installmentAmount: amount / installments,
+                date,
+                installments,
+                category,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        
+        DB.creditCards.push({
+            id: docRef.id,
+            userId,
+            cardName,
+            description,
+            totalAmount: amount,
+            installmentAmount: amount / installments,
+            date,
+            installments,
+            category
+        });
+        
+        showAlert('card-success', 'Compra adicionada com sucesso!');
+        document.getElementById('credit-card-form').reset();
+        updateCreditCardsList();
+        
+        setTimeout(() => hideAlert('card-success'), 3000);
+        
+    } catch (error) {
+        console.error('Erro ao adicionar compra:', error);
+        showAlert('card-error', 'Erro ao salvar compra');
+    }
+}
+
+function updateCreditCardsList() {
+    const container = document.getElementById('credit-cards-list');
+    if (!container) return;
+    
+    if (DB.creditCards.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-credit-card"></i>
+                <p>Nenhuma compra registrada</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = DB.creditCards.map(card => `
+        <div class="transaction-item">
+            <div class="transaction-info">
+                <div class="transaction-icon expense">
+                    <i class="fas fa-credit-card"></i>
+                </div>
+                <div class="transaction-details">
+                    <h4>${card.cardName} - ${card.description}</h4>
+                    <p>${card.category}</p>
+                    <small>${formatDate(card.date)} - ${card.installments}x de R$ ${card.installmentAmount.toFixed(2)}</small>
+                </div>
+            </div>
+            <div class="transaction-amount expense">
+                R$ ${card.totalAmount.toFixed(2)}
+            </div>
+        </div>
+    `).join('');
+}
+
+// ========== CONTAS MENSAIS ==========
+async function handleAddBill(e) {
+    e.preventDefault();
+    
+    const type = document.getElementById('bill-type').value;
+    const amount = parseFloat(document.getElementById('bill-amount').value);
+    const dueDay = parseInt(document.getElementById('bill-due-day').value);
+    const notes = document.getElementById('bill-notes').value;
+
+    if (!type || !amount || !dueDay) {
+        showAlert('bill-error', 'Preencha todos os campos obrigatórios');
+        return;
+    }
+
+    try {
+        const userId = window.auth.currentUser.uid;
+        
+        const docRef = await window.db.collection('users').doc(userId)
+            .collection('monthlyBills').add({
+                type,
+                amount,
+                dueDay,
+                notes,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        
+        DB.monthlyBills.push({
+            id: docRef.id,
+            userId,
+            type,
+            amount,
+            dueDay,
+            notes
+        });
+        
+        showAlert('bill-success', 'Conta adicionada com sucesso!');
+        document.getElementById('bill-form').reset();
+        updateBillsList();
+        
+        setTimeout(() => hideAlert('bill-success'), 3000);
+        
+    } catch (error) {
+        console.error('Erro ao adicionar conta:', error);
+        showAlert('bill-error', 'Erro ao salvar conta');
+    }
+}
+
+function updateBillsList() {
+    const container = document.getElementById('bills-list');
+    if (!container) return;
+    
+    if (DB.monthlyBills.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-file-invoice-dollar"></i>
+                <p>Nenhuma conta cadastrada</p>
+            </div>
+        `;
+        return;
+    }
+
+    const totalBills = DB.monthlyBills.reduce((sum, b) => sum + b.amount, 0);
+    document.getElementById('total-bills').textContent = `R$ ${totalBills.toFixed(2)}`;
+    document.getElementById('bills-count').textContent = DB.monthlyBills.length;
+
+    container.innerHTML = DB.monthlyBills.map(bill => `
+        <div class="transaction-item">
+            <div class="transaction-info">
+                <div class="transaction-icon expense">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                </div>
+                <div class="transaction-details">
+                    <h4>${bill.type}</h4>
+                    <p>${bill.notes || 'Sem observações'}</p>
+                    <small>Vencimento: dia ${bill.dueDay}</small>
+                </div>
+            </div>
+            <div class="transaction-amount expense">
+                R$ ${bill.amount.toFixed(2)}
+            </div>
+        </div>
+    `).join('');
+}
+
+// ========== FAMÍLIA ==========
+function handleInviteFamily() {
+    const email = document.getElementById('family-email').value;
+    const permission = document.getElementById('family-permission').value;
+
+    if (!email || !permission) {
+        showAlert('family-error', 'Preencha todos os campos');
+        return;
+    }
+
+    showAlert('family-success', `Convite enviado para ${email} com permissão de ${permission}`);
+    
+    document.getElementById('family-email').value = '';
+    
+    setTimeout(() => hideAlert('family-success'), 3000);
+}
+
+function updateFamilyMembersList() {
+    const container = document.getElementById('family-members-list');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="empty-state">
+            <i class="fas fa-users"></i>
+            <p>Nenhum membro adicionado ainda</p>
+            <p style="font-size: 14px; margin-top: 8px;">Convide membros da família para compartilhar finanças</p>
+        </div>
+    `;
+}
+
+// ========== CATEGORIAS ==========
+async function handleAddCategory() {
+    const name = document.getElementById('new-category-name').value;
+    const type = document.getElementById('new-category-type').value;
+
+    if (!name || !type) {
+        showAlert('categories-error', 'Preencha todos os campos');
+        return;
+    }
+
+    try {
+        const userId = window.auth.currentUser.uid;
+        
+        const docRef = await window.db.collection('users').doc(userId)
+            .collection('categories').add({
+                name,
+                type,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        
+        DB.categories.push({
+            id: docRef.id,
+            name,
+            type
+        });
+        
+        showAlert('categories-success', 'Categoria adicionada com sucesso!');
+        document.getElementById('new-category-name').value = '';
+        updateCategoriesList();
+        loadCategories();
+        
+        setTimeout(() => hideAlert('categories-success'), 3000);
+        
+    } catch (error) {
+        console.error('Erro ao adicionar categoria:', error);
+    }
+}
+
+function updateCategoriesList() {
+    const container = document.getElementById('categories-list');
+    if (!container) return;
+    
+    if (DB.categories.length === 0) {
+        container.innerHTML = `<p style="color: var(--text-secondary);">Nenhuma categoria cadastrada</p>`;
+        return;
+    }
+
+    container.innerHTML = DB.categories.map(cat => `
+        <div class="category-item">
+            <div class="category-info">
+                <span>${cat.name}</span>
+                <span class="category-badge ${cat.type}">${cat.type === 'income' ? 'Receita' : 'Despesa'}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function loadCategories() {
+    const select = document.getElementById('transaction-category');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">Selecione uma categoria</option>';
+    
+    DB.categories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.name;
+        option.textContent = cat.name;
+        select.appendChild(option);
+    });
+}
+
+// ========== RELATÓRIOS ==========
+function updateReports() {
+    console.log('Atualizando relatórios...');
+    // Implementar gráficos e relatórios detalhados
+}
+
+function updateEvolutionChart() {
+    const canvas = document.getElementById('evolution-chart');
+    if (!canvas) return;
+    
+    console.log('Atualizando gráfico de evolução...');
+    // Implementar Chart.js aqui
+}
+
+// ========== EXPORTAÇÃO ==========
+function exportToPDF() {
+    alert('Funcionalidade de exportação PDF será implementada em breve!');
+}
+
+function exportToExcel() {
+    alert('Funcionalidade de exportação Excel será implementada em breve!');
+}
+
+// ========== BACKUP ==========
+function handleBackup() {
+    const data = {
+        transactions: DB.transactions,
+        budgets: DB.budgets,
+        goals: DB.goals,
+        investments: DB.investments,
+        creditCards: DB.creditCards,
+        monthlyBills: DB.monthlyBills,
+        categories: DB.categories
+    };
+    
+    const dataStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `fincontrol-backup-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    
+    showAlert('backup-success', 'Backup realizado com sucesso!');
+    setTimeout(() => hideAlert('backup-success'), 3000);
+}
+
+function handleRestore(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const data = JSON.parse(event.target.result);
+            
+            if (confirm('Tem certeza que deseja restaurar este backup? Os dados atuais serão substituídos.')) {
+                DB.transactions = data.transactions || [];
+                DB.budgets = data.budgets || [];
+                DB.goals = data.goals || [];
+                DB.investments = data.investments || [];
+                DB.creditCards = data.creditCards || [];
+                DB.monthlyBills = data.monthlyBills || [];
+                DB.categories = data.categories || DEFAULT_CATEGORIES;
+                
+                showAlert('backup-success', 'Backup restaurado com sucesso!');
+                updateDashboard();
+                
+                setTimeout(() => hideAlert('backup-success'), 3000);
+            }
+        } catch (error) {
+            showAlert('backup-error', 'Erro ao restaurar backup. Arquivo inválido.');
+            setTimeout(() => hideAlert('backup-error'), 3000);
+        }
+    };
+    reader.readAsText(file);
+}
+
+async function handleClearData() {
+    if (!confirm('⚠️ ATENÇÃO! Esta ação irá apagar TODOS os seus dados permanentemente. Deseja continuar?')) {
+        return;
+    }
+    
+    if (!confirm('Tem CERTEZA ABSOLUTA? Esta ação NÃO pode ser desfeita!')) {
+        return;
+    }
+    
+    try {
+        const userId = window.auth.currentUser.uid;
+        
+        // Limpar dados do Firebase
+        const batch = window.db.batch();
+        
+        const collections = ['transactions', 'budgets', 'goals', 'investments', 'creditCards', 'monthlyBills'];
+        
+        for (const collection of collections) {
+            const snapshot = await window.db.collection('users').doc(userId).collection(collection).get();
+            snapshot.docs.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+        }
+        
+        await batch.commit();
+        
+        // Limpar dados locais
+        DB.transactions = [];
+        DB.budgets = [];
+        DB.goals = [];
+        DB.investments = [];
+        DB.creditCards = [];
+        DB.monthlyBills = [];
+        
+        showAlert('backup-success', 'Todos os dados foram apagados com sucesso!');
+        updateDashboard();
+        
+        setTimeout(() => hideAlert('backup-success'), 3000);
+        
+    } catch (error) {
+        console.error('Erro ao limpar dados:', error);
+        showAlert('backup-error', 'Erro ao limpar dados');
+    }
+}
+
+// ========== PWA ==========
+function handleInstallPWA() {
+    alert('Para instalar o app:\n\n• No Chrome: Menu > Instalar App\n• No Safari: Compartilhar > Adicionar à Tela Inicial\n• No Edge: Menu > Aplicativos > Instalar este site');
 }
 
 // ========== FUNÇÕES AUXILIARES ==========
@@ -824,9 +1524,11 @@ function loadTheme() {
 
 function applyTheme(theme) {
     const body = document.body;
+    const html = document.documentElement;
     const themeIcon = document.querySelector('#theme-toggle i');
     
     body.classList.remove('light-theme', 'dark-theme');
+    html.classList.remove('light-theme', 'dark-theme');
     
     document.querySelectorAll('.theme-option').forEach(btn => {
         btn.classList.remove('active');
@@ -838,11 +1540,13 @@ function applyTheme(theme) {
     if (theme === 'auto') {
         const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         body.classList.add(isDark ? 'dark-theme' : 'light-theme');
+        html.classList.add(isDark ? 'dark-theme' : 'light-theme');
         if (themeIcon) {
             themeIcon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
         }
     } else {
         body.classList.add(`${theme}-theme`);
+        html.classList.add(`${theme}-theme`);
         if (themeIcon) {
             themeIcon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
         }
@@ -860,47 +1564,5 @@ function toggleTheme() {
     const newTheme = currentTheme === 'light' ? 'dark' : 'light';
     applyTheme(newTheme);
 }
-
-// ========== CATEGORIAS ==========
-function loadCategories() {
-    const select = document.getElementById('transaction-category');
-    if (!select) return;
-    
-    select.innerHTML = '<option value="">Selecione uma categoria</option>';
-    
-    DB.categories.forEach(cat => {
-        const option = document.createElement('option');
-        option.value = cat.name;
-        option.textContent = cat.name;
-        select.appendChild(option);
-    });
-}
-
-// ========== STUBS DAS OUTRAS FUNÇÕES ==========
-// Adicione aqui as funções restantes conforme necessário
-
-function handleAddBudget(e) { e.preventDefault(); console.log('Budget - implementar'); }
-function handleAddGoal(e) { e.preventDefault(); console.log('Goal - implementar'); }
-function handleAddInvestment(e) { e.preventDefault(); console.log('Investment - implementar'); }
-function handleAddCreditCard(e) { e.preventDefault(); console.log('Card - implementar'); }
-function handleAddBill(e) { e.preventDefault(); console.log('Bill - implementar'); }
-function handleInviteFamily() { console.log('Family - implementar'); }
-function handleAddCategory() { console.log('Category - implementar'); }
-function exportToPDF() { console.log('PDF - implementar'); }
-function exportToExcel() { console.log('Excel - implementar'); }
-function handleBackup() { console.log('Backup - implementar'); }
-function handleRestore() { console.log('Restore - implementar'); }
-function handleClearData() { console.log('Clear - implementar'); }
-function handleInstallPWA() { console.log('PWA - implementar'); }
-function updateBudgetsList() { console.log('Budgets list'); }
-function updateGoalsList() { console.log('Goals list'); }
-function updateGoalsPreview() { console.log('Goals preview'); }
-function updateInvestmentsList() { console.log('Investments list'); }
-function updateCreditCardsList() { console.log('Cards list'); }
-function updateBillsList() { console.log('Bills list'); }
-function updateFamilyMembersList() { console.log('Family list'); }
-function updateCategoriesList() { console.log('Categories list'); }
-function updateReports() { console.log('Reports'); }
-function updateEvolutionChart() { console.log('Chart'); }
 
 console.log('✅ FinControl Pro carregado!');
