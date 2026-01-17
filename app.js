@@ -586,6 +586,7 @@ function updateDashboard() {
     updateRecentTransactions();
     updateGoalsPreview();
     updateEvolutionChart();
+    checkBillsAlerts();
 }
 
 function updateRecentTransactions() {
@@ -1085,6 +1086,8 @@ async function handleAddBill(e) {
                 amount,
                 dueDay,
                 notes,
+                status: 'pending',
+                payments: [],
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
         
@@ -1094,12 +1097,15 @@ async function handleAddBill(e) {
             type,
             amount,
             dueDay,
-            notes
+            notes,
+            status: 'pending',
+            payments: []
         });
         
         showAlert('bill-success', 'Conta adicionada com sucesso!');
         document.getElementById('bill-form').reset();
         updateBillsList();
+        checkBillsAlerts();
         
         setTimeout(() => hideAlert('bill-success'), 3000);
         
@@ -1107,6 +1113,122 @@ async function handleAddBill(e) {
         console.error('Erro ao adicionar conta:', error);
         showAlert('bill-error', 'Erro ao salvar conta');
     }
+}
+
+async function markBillAsPaid(billId, month, year) {
+    try {
+        const userId = window.auth.currentUser.uid;
+        const bill = DB.monthlyBills.find(b => b.id === billId);
+        
+        if (!bill) return;
+        
+        const payment = {
+            month,
+            year,
+            paidAt: new Date().toISOString(),
+            amount: bill.amount
+        };
+        
+        if (!bill.payments) bill.payments = [];
+        bill.payments.push(payment);
+        
+        await window.db.collection('users').doc(userId)
+            .collection('monthlyBills').doc(billId)
+            .update({
+                payments: firebase.firestore.FieldValue.arrayUnion(payment)
+            });
+        
+        updateBillsList();
+        showAlert('bill-success', 'Conta marcada como paga!');
+        setTimeout(() => hideAlert('bill-success'), 3000);
+        
+    } catch (error) {
+        console.error('Erro ao marcar conta como paga:', error);
+    }
+}
+
+function getBillStatus(bill) {
+    const now = new Date();
+    const currentDay = now.getDate();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    const isPaid = bill.payments?.some(p => 
+        p.month === currentMonth && p.year === currentYear
+    );
+    
+    if (isPaid) {
+        return { status: 'paid', text: 'Pago', class: 'success' };
+    }
+    
+    if (currentDay > bill.dueDay) {
+        return { status: 'overdue', text: 'Atrasado', class: 'danger' };
+    }
+    
+    const daysUntilDue = bill.dueDay - currentDay;
+    if (daysUntilDue <= 3) {
+        return { status: 'warning', text: 'Vence em breve', class: 'warning' };
+    }
+    
+    return { status: 'pending', text: 'Pendente', class: 'info' };
+}
+
+function checkBillsAlerts() {
+    const alertsContainer = document.getElementById('alerts-container');
+    if (!alertsContainer) return;
+    
+    const now = new Date();
+    const currentDay = now.getDate();
+    
+    const overdueBills = DB.monthlyBills.filter(bill => {
+        const status = getBillStatus(bill);
+        return status.status === 'overdue';
+    });
+    
+    const upcomingBills = DB.monthlyBills.filter(bill => {
+        const status = getBillStatus(bill);
+        return status.status === 'warning';
+    });
+    
+    let alerts = '';
+    
+    if (overdueBills.length > 0) {
+        alerts += `
+            <div class="alert alert-error" style="margin-bottom: 16px;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div>
+                    <strong>Atenção!</strong> Você tem ${overdueBills.length} conta(s) em atraso.
+                    <button class="link-btn" data-page="bills" style="margin-left: 8px; color: inherit; text-decoration: underline;">
+                        Ver contas
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+    
+    if (upcomingBills.length > 0) {
+        alerts += `
+            <div class="alert alert-warning" style="margin-bottom: 16px;">
+                <i class="fas fa-clock"></i>
+                <div>
+                    <strong>Lembrete:</strong> ${upcomingBills.length} conta(s) vencem nos próximos 3 dias.
+                    <button class="link-btn" data-page="bills" style="margin-left: 8px; color: inherit; text-decoration: underline;">
+                        Ver contas
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+    
+    alertsContainer.innerHTML = alerts;
+    
+    // Re-attach event listeners
+    document.querySelectorAll('#alerts-container .link-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const page = e.currentTarget.dataset.page;
+            if (page) navigateTo(page);
+        });
+    });
 }
 
 function updateBillsList() {
@@ -1127,23 +1249,94 @@ function updateBillsList() {
     document.getElementById('total-bills').textContent = `R$ ${totalBills.toFixed(2)}`;
     document.getElementById('bills-count').textContent = DB.monthlyBills.length;
 
-    container.innerHTML = DB.monthlyBills.map(bill => `
-        <div class="transaction-item">
-            <div class="transaction-info">
-                <div class="transaction-icon expense">
-                    <i class="fas fa-file-invoice-dollar"></i>
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    container.innerHTML = DB.monthlyBills.map(bill => {
+        const status = getBillStatus(bill);
+        const isPaid = status.status === 'paid';
+        
+        return `
+            <div class="bill-item">
+                <div class="transaction-info">
+                    <div class="transaction-icon expense">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                    </div>
+                    <div class="transaction-details">
+                        <h4>${bill.type}</h4>
+                        <p>${bill.notes || 'Sem observações'}</p>
+                        <small>Vencimento: dia ${bill.dueDay}</small>
+                    </div>
                 </div>
-                <div class="transaction-details">
-                    <h4>${bill.type}</h4>
-                    <p>${bill.notes || 'Sem observações'}</p>
-                    <small>Vencimento: dia ${bill.dueDay}</small>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                    <div class="transaction-amount expense">
+                        R$ ${bill.amount.toFixed(2)}
+                    </div>
+                    <span class="bill-status ${status.class}">
+                        <i class="fas fa-${status.status === 'paid' ? 'check-circle' : status.status === 'overdue' ? 'exclamation-circle' : 'clock'}"></i>
+                        ${status.text}
+                    </span>
+                    ${!isPaid ? `
+                        <button class="btn-mark-paid" onclick="markBillAsPaid('${bill.id}', ${currentMonth}, ${currentYear})">
+                            <i class="fas fa-check"></i> Marcar como Pago
+                        </button>
+                    ` : ''}
                 </div>
             </div>
-            <div class="transaction-amount expense">
-                R$ ${bill.amount.toFixed(2)}
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
+    
+    updateBillsCalendar();
+}
+
+function updateBillsCalendar() {
+    const container = document.getElementById('bills-calendar');
+    if (!container) return;
+    
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const monthName = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    
+    const billsByDay = {};
+    
+    DB.monthlyBills.forEach(bill => {
+        if (!billsByDay[bill.dueDay]) {
+            billsByDay[bill.dueDay] = [];
+        }
+        billsByDay[bill.dueDay].push(bill);
+    });
+    
+    const days = Object.keys(billsByDay).sort((a, b) => a - b);
+    
+    if (days.length === 0) {
+        container.innerHTML = `<p style="color: var(--text-secondary);">Nenhum vencimento neste mês</p>`;
+        return;
+    }
+    
+    container.innerHTML = `
+        <h4 style="margin-bottom: 16px; color: var(--text-primary);">${monthName}</h4>
+        ${days.map(day => {
+            const bills = billsByDay[day];
+            const total = bills.reduce((sum, b) => sum + b.amount, 0);
+            
+            return `
+                <div class="calendar-day-item">
+                    <div class="calendar-day-header">
+                        <span class="calendar-day-number">Dia ${day}</span>
+                        <span class="calendar-day-total">R$ ${total.toFixed(2)}</span>
+                    </div>
+                    <div class="calendar-day-bills">
+                        ${bills.map(bill => {
+                            const status = getBillStatus(bill);
+                            return `<span class="calendar-bill-tag ${status.class}">${bill.type}</span>`;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('')}
+    `;
 }
 
 // ========== FAMÍLIA ==========
