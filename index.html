@@ -37,7 +37,7 @@
         <div class="auth-card">
             <div class="auth-header">
                 <div class="app-icon">
-                    <i class="fas fa-wallet"></i>
+                    <img src="logo-fincontrol.png" alt="FinControl Pro">
                 </div>
                 <h1 class="app-title">FinControl Pro</h1>
                 <p class="app-subtitle">Controle financeiro inteligente</p>
@@ -81,7 +81,7 @@
         <div class="auth-card">
             <div class="auth-header">
                 <div class="app-icon register-icon">
-                    <i class="fas fa-user"></i>
+                    <img src="logo-fincontrol.png" alt="FinControl Pro">
                 </div>
                 <h1 class="app-title">Criar Conta</h1>
                 <p class="app-subtitle">Comece sua jornada financeira</p>
@@ -156,9 +156,10 @@
             <div class="nav-container">
                 <div class="nav-brand">
                     <div class="brand-icon">
-                        <i class="fas fa-wallet"></i>
+                        <img src="logo-fincontrol.png" alt="FinControl Pro">
                     </div>
-                    <span class="brand-name">FinControl Pro</span>
+                    <span class="brand-name brand-name-web">FinControl Pro</span>
+                    <span class="brand-name brand-name-mobile">FCP</span>
                 </div>
 
                 <div class="nav-menu" id="nav-menu">
@@ -811,7 +812,7 @@
                     
                     <div class="mobile-app-section">
                         <div class="mobile-app-preview">
-                            <img src="icon-192.png" alt="FinControl Pro" style="width: 96px; height: 96px; border-radius: 20px; margin-bottom: 16px;">
+                            <img src="logo-fincontrol.png" alt="FinControl Pro" style="width: 128px; height: 128px; object-fit: contain; border-radius: 24px; margin-bottom: 16px; box-shadow: 0 8px 24px rgba(30, 58, 138, 0.2);">
                             <h4 style="margin-top: 16px; font-size: 20px; font-weight: 700;">FinControl Pro Mobile</h4>
                             <p style="color: var(--gray-600); margin-top: 8px;">Acesse suas finanças de qualquer lugar</p>
                         </div>
@@ -924,14 +925,16 @@
                             <div class="pix-qrcode">
                                 <div id="qrcode-container" style="background: white; padding: 20px; border-radius: 12px; display: inline-block;">
                                     <!-- QR Code será gerado aqui -->
-                                    <img src="qrcode-pix.png" alt="QR Code PIX" style="width: 200px; height: 200px; border-radius: 8px;">
+                                    <div style="width: 200px; height: 200px; background: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 8px;">
+                                        <i class="fas fa-qrcode" style="font-size: 64px; color: #d1d5db;"></i>
+                                    </div>
                                 </div>
                             </div>
 
                             <div class="pix-key">
                                 <label style="display: block; font-weight: 600; margin-bottom: 8px;">Chave PIX (Copiar e Colar):</label>
                                 <div class="pix-copy-container">
-                                    <input type="text" id="pix-key" value="00020126360014BR.GOV.BCB.PIX0114+55169921898625204000053039865802BR5901N6001C62180514PGTOFINCONTROL6304A14C" readonly style="flex: 1; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px 0 0 8px; font-family: monospace;">
+                                    <input type="text" id="pix-key" value="sua-chave-pix@email.com" readonly style="flex: 1; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px 0 0 8px; font-family: monospace;">
                                     <button id="copy-pix-btn" class="btn-copy-pix">
                                         <i class="fas fa-copy"></i> Copiar
                                     </button>
@@ -975,7 +978,7 @@
                 <div class="footer-about">
                     <div class="footer-brand">
                         <div class="brand-icon">
-                            <i class="fas fa-wallet"></i>
+                            <img src="logo-fincontrol.png" alt="FinControl Pro">
                         </div>
                         <span class="brand-name">FinControl Pro</span>
                     </div>
