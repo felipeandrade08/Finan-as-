@@ -1,34 +1,18 @@
-// Base de dados
+// =============================================
+// FINCONTROL PRO v3.5 - COM FIREBASE
+// Desenvolvido por: FELIPE ANDRADE DEV
+// =============================================
+
+// Base de dados local (cache)
 const DB = {
-    users: [],
     transactions: [],
     budgets: [],
     goals: [],
     categories: [],
-    recurringTransactions: [],
     investments: [],
-    familyMembers: [],
     creditCards: [],
     monthlyBills: [],
     currentUser: null
-};
-
-// Supabase client instance
-let supabaseClient = null;
-
-// Configuração padrão do Supabase (CONFIGURE COM SUAS CREDENCIAIS)
-const SUPABASE_CONFIG = {
-    // Coloque sua URL do Supabase aqui
-    url: 'SUA_URL_SUPABASE_AQUI', // Ex: https://xxxxx.supabase.co
-    // Coloque sua chave anon/public aqui
-    key: 'SUA_CHAVE_SUPABASE_AQUI', // Ex: eyJhbGciOiJIUzI1NI...
-    enabled: false // Mude para true após configurar
-};
-
-let supabaseConfig = {
-    url: SUPABASE_CONFIG.url,
-    key: SUPABASE_CONFIG.key,
-    autoSync: true
 };
 
 // Categorias padrão
@@ -48,248 +32,75 @@ const DEFAULT_CATEGORIES = [
 
 let currentFilter = 'month';
 let charts = {};
-let deferredPrompt;
 
-// Inicialização
-document.addEventListener('DOMContentLoaded', async () => {
+// ========== INICIALIZAÇÃO ==========
+document.addEventListener('DOMContentLoaded', () => {
     console.log('=== FINCONTROL PRO INICIANDO ===');
     
-    // Carregar tema ANTES de tudo
+    // Carregar tema
     loadTheme();
     
-    // Inicializar Supabase se configurado
-    await initializeSupabaseOnLoad();
-    
-    // Carregar dados
-    await loadData();
-    
-    console.log('Estado após carregar:');
-    console.log('- Usuários cadastrados:', DB.users.length);
-    console.log('- Usuário atual:', DB.currentUser ? DB.currentUser.email : 'nenhum');
-    
+    // Setup de listeners (exceto Firebase auth que vai ser configurado depois)
     setupEventListeners();
     
-    // Esconder loading e mostrar página apropriada
-    document.getElementById('loading-screen').style.display = 'none';
-    
-    if (DB.currentUser) {
-        console.log('✅ Usuário logado detectado! Mostrando dashboard...');
-        showMainApp();
+    // Firebase Auth State Observer
+    if (window.auth) {
+        window.auth.onAuthStateChanged(async (user) => {
+            document.getElementById('loading-screen').style.display = 'none';
+            
+            if (user) {
+                console.log('✅ Usuário autenticado:', user.email);
+                DB.currentUser = {
+                    id: user.uid,
+                    name: user.displayName || user.email.split('@')[0],
+                    email: user.email
+                };
+                
+                await loadUserDataFromFirebase(user.uid);
+                showMainApp();
+            } else {
+                console.log('❌ Nenhum usuário autenticado');
+                document.getElementById('login-page').classList.remove('hidden');
+            }
+        });
     } else {
-        console.log('❌ Nenhum usuário logado. Mostrando login...');
+        console.error('Firebase não está configurado!');
+        document.getElementById('loading-screen').style.display = 'none';
+        alert('Firebase não configurado. Por favor, adicione suas credenciais no HTML.');
         document.getElementById('login-page').classList.remove('hidden');
     }
     
     console.log('=== INICIALIZAÇÃO COMPLETA ===');
 });
 
-// Gerenciamento de dados com localStorage como fallback
-async function loadData() {
-    try {
-        // Tentar carregar do localStorage primeiro (mais confiável)
-        const localUsers = localStorage.getItem('fincontrol_users');
-        const localCurrentUser = localStorage.getItem('fincontrol_current_user');
-        
-        if (localUsers) {
-            DB.users = JSON.parse(localUsers);
-        }
-        
-        if (localCurrentUser) {
-            DB.currentUser = JSON.parse(localCurrentUser);
-        }
-        
-        // Tentar carregar outros dados
-        const localData = {
-            transactions: localStorage.getItem('fincontrol_transactions'),
-            budgets: localStorage.getItem('fincontrol_budgets'),
-            goals: localStorage.getItem('fincontrol_goals'),
-            categories: localStorage.getItem('fincontrol_categories'),
-            investments: localStorage.getItem('fincontrol_investments'),
-            familyMembers: localStorage.getItem('fincontrol_family')
-        };
-        
-        if (localData.transactions) DB.transactions = JSON.parse(localData.transactions);
-        if (localData.budgets) DB.budgets = JSON.parse(localData.budgets);
-        if (localData.goals) DB.goals = JSON.parse(localData.goals);
-        if (localData.categories) DB.categories = JSON.parse(localData.categories);
-        if (localData.investments) DB.investments = JSON.parse(localData.investments);
-        if (localData.familyMembers) DB.familyMembers = JSON.parse(localData.familyMembers);
-        
-        // Carregar cartões e contas
-        const creditCards = localStorage.getItem('fincontrol_credit_cards');
-        const monthlyBills = localStorage.getItem('fincontrol_monthly_bills');
-        if (creditCards) DB.creditCards = JSON.parse(creditCards);
-        if (monthlyBills) DB.monthlyBills = JSON.parse(monthlyBills);
-        
-        // Se Supabase estiver configurado e houver usuário, carregar de lá também
-        if (supabaseClient && DB.currentUser) {
-            await loadFromSupabase();
-        }
-        
-        // Inicializar categorias padrão se não existirem
-        if (DB.categories.length === 0) {
-            DB.categories = DEFAULT_CATEGORIES.map((cat, index) => ({
-                id: index + 1,
-                ...cat
-            }));
-            await saveData();
-        }
-        
-        console.log('Dados carregados:', {
-            users: DB.users.length,
-            currentUser: DB.currentUser ? DB.currentUser.email : 'nenhum',
-            transactions: DB.transactions.length
-        });
-        
-    } catch (err) {
-        console.error('Erro ao carregar dados:', err);
-    }
-}
-
-async function loadFromSupabase() {
-    try {
-        console.log('Carregando dados do Supabase...');
-        
-        // Carregar transações
-        const { data: transactions } = await supabaseClient
-            .from('transactions')
-            .select('*')
-            .eq('user_id', DB.currentUser.email);
-        
-        if (transactions) {
-            DB.transactions = transactions.map(t => ({
-                id: t.id,
-                userId: t.user_id,
-                type: t.type,
-                amount: parseFloat(t.amount),
-                category: t.category,
-                date: t.date,
-                description: t.description,
-                createdAt: t.created_at
-            }));
-        }
-        
-        // Carregar orçamentos
-        const { data: budgets } = await supabaseClient
-            .from('budgets')
-            .select('*')
-            .eq('user_id', DB.currentUser.email);
-        
-        if (budgets) {
-            DB.budgets = budgets.map(b => ({
-                id: b.id,
-                userId: b.user_id,
-                category: b.category,
-                amount: parseFloat(b.amount),
-                createdAt: b.created_at
-            }));
-        }
-        
-        // Carregar metas
-        const { data: goals } = await supabaseClient
-            .from('goals')
-            .select('*')
-            .eq('user_id', DB.currentUser.email);
-        
-        if (goals) {
-            DB.goals = goals.map(g => ({
-                id: g.id,
-                userId: g.user_id,
-                name: g.name,
-                targetAmount: parseFloat(g.target_amount),
-                currentAmount: parseFloat(g.current_amount || 0),
-                deadline: g.deadline,
-                createdAt: g.created_at
-            }));
-        }
-        
-        // Carregar investimentos
-        const { data: investments } = await supabaseClient
-            .from('investments')
-            .select('*')
-            .eq('user_id', DB.currentUser.email);
-        
-        if (investments) {
-            DB.investments = investments.map(i => ({
-                id: i.id,
-                userId: i.user_id,
-                name: i.name,
-                type: i.type,
-                amount: parseFloat(i.amount),
-                currentValue: parseFloat(i.current_value),
-                date: i.date,
-                yieldRate: parseFloat(i.yield_rate || 0),
-                createdAt: i.created_at
-            }));
-        }
-        
-        console.log('Dados carregados do Supabase com sucesso!');
-        
-    } catch (err) {
-        console.error('Erro ao carregar do Supabase:', err);
-    }
-}
-
-async function saveData() {
-    try {
-        // SALVAR APENAS NO LOCALSTORAGE (confiável e sempre disponível)
-        localStorage.setItem('fincontrol_users', JSON.stringify(DB.users));
-        localStorage.setItem('fincontrol_transactions', JSON.stringify(DB.transactions));
-        localStorage.setItem('fincontrol_budgets', JSON.stringify(DB.budgets));
-        localStorage.setItem('fincontrol_goals', JSON.stringify(DB.goals));
-        localStorage.setItem('fincontrol_categories', JSON.stringify(DB.categories));
-        localStorage.setItem('fincontrol_investments', JSON.stringify(DB.investments));
-        localStorage.setItem('fincontrol_family', JSON.stringify(DB.familyMembers));
-        localStorage.setItem('fincontrol_credit_cards', JSON.stringify(DB.creditCards));
-        localStorage.setItem('fincontrol_monthly_bills', JSON.stringify(DB.monthlyBills));
-        localStorage.setItem('fincontrol_recurring', JSON.stringify(DB.recurringTransactions));
-        
-        if (DB.currentUser) {
-            localStorage.setItem('fincontrol_current_user', JSON.stringify(DB.currentUser));
-        }
-        
-        console.log('✅ Dados salvos com sucesso!', {
-            users: DB.users.length,
-            currentUser: DB.currentUser ? DB.currentUser.email : 'nenhum'
-        });
-        
-        // Se Supabase estiver configurado e autoSync ativo, sincronizar
-        if (supabaseClient && supabaseConfig.autoSync && DB.currentUser) {
-            await syncWithSupabase();
-        }
-    } catch (err) {
-        console.error('❌ Erro ao salvar:', err);
-    }
-}
-
-// Event Listeners
+// ========== EVENT LISTENERS ==========
 function setupEventListeners() {
     // Auth
-    document.getElementById('show-register').addEventListener('click', () => {
+    document.getElementById('show-register')?.addEventListener('click', () => {
         document.getElementById('login-page').classList.add('hidden');
         document.getElementById('register-page').classList.remove('hidden');
     });
 
-    document.getElementById('show-login').addEventListener('click', () => {
+    document.getElementById('show-login')?.addEventListener('click', () => {
         document.getElementById('register-page').classList.add('hidden');
         document.getElementById('login-page').classList.remove('hidden');
     });
 
-    document.getElementById('login-form').addEventListener('submit', handleLogin);
-    document.getElementById('register-form').addEventListener('submit', handleRegister);
+    document.getElementById('login-form')?.addEventListener('submit', handleLogin);
+    document.getElementById('register-form')?.addEventListener('submit', handleRegister);
 
     // Navigation
     document.querySelectorAll('.nav-item:not(.logout-btn)').forEach(item => {
         item.addEventListener('click', (e) => {
             const page = e.currentTarget.dataset.page;
-            navigateTo(page);
+            if (page) navigateTo(page);
         });
     });
 
     document.querySelectorAll('.link-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const page = e.currentTarget.dataset.page;
-            navigateTo(page);
+            if (page) navigateTo(page);
         });
     });
 
@@ -299,37 +110,43 @@ function setupEventListeners() {
     }
 
     // Forms
-    document.getElementById('transaction-form').addEventListener('submit', handleAddTransaction);
-    document.getElementById('budget-form').addEventListener('submit', handleAddBudget);
-    document.getElementById('goal-form').addEventListener('submit', handleAddGoal);
+    document.getElementById('transaction-form')?.addEventListener('submit', handleAddTransaction);
+    document.getElementById('budget-form')?.addEventListener('submit', handleAddBudget);
+    document.getElementById('goal-form')?.addEventListener('submit', handleAddGoal);
+    document.getElementById('investment-form')?.addEventListener('submit', handleAddInvestment);
+    document.getElementById('credit-card-form')?.addEventListener('submit', handleAddCreditCard);
+    document.getElementById('bill-form')?.addEventListener('submit', handleAddBill);
+    document.getElementById('invite-family-btn')?.addEventListener('click', handleInviteFamily);
 
     // Recurring checkbox
-    document.getElementById('transaction-recurring').addEventListener('change', (e) => {
+    document.getElementById('transaction-recurring')?.addEventListener('change', (e) => {
         const recurringOptions = document.getElementById('recurring-options');
-        if (e.target.checked) {
-            recurringOptions.classList.remove('hidden');
-        } else {
-            recurringOptions.classList.add('hidden');
+        if (recurringOptions) {
+            if (e.target.checked) {
+                recurringOptions.classList.remove('hidden');
+            } else {
+                recurringOptions.classList.add('hidden');
+            }
         }
     });
 
     // Categories
-    document.getElementById('manage-categories-btn').addEventListener('click', () => {
+    document.getElementById('manage-categories-btn')?.addEventListener('click', () => {
         navigateTo('settings');
     });
-    document.getElementById('add-category-btn').addEventListener('click', handleAddCategory);
+    document.getElementById('add-category-btn')?.addEventListener('click', handleAddCategory);
 
     // Export buttons
-    document.getElementById('export-pdf-btn').addEventListener('click', exportToPDF);
-    document.getElementById('export-excel-btn').addEventListener('click', exportToExcel);
+    document.getElementById('export-pdf-btn')?.addEventListener('click', exportToPDF);
+    document.getElementById('export-excel-btn')?.addEventListener('click', exportToExcel);
 
     // Backup buttons
-    document.getElementById('backup-btn').addEventListener('click', handleBackup);
-    document.getElementById('restore-btn').addEventListener('change', handleRestore);
-    document.getElementById('clear-data-btn').addEventListener('click', handleClearData);
+    document.getElementById('backup-btn')?.addEventListener('click', handleBackup);
+    document.getElementById('restore-btn')?.addEventListener('change', handleRestore);
+    document.getElementById('clear-data-btn')?.addEventListener('click', handleClearData);
 
     // PWA Install
-    document.getElementById('install-pwa-btn').addEventListener('click', handleInstallPWA);
+    document.getElementById('install-pwa-btn')?.addEventListener('click', handleInstallPWA);
 
     // Theme toggle
     const themeToggleBtn = document.getElementById('theme-toggle');
@@ -344,100 +161,66 @@ function setupEventListeners() {
         });
     });
 
-    // Supabase
-    document.getElementById('save-supabase-btn').addEventListener('click', handleSaveSupabase);
-    document.getElementById('manual-sync-btn').addEventListener('click', handleManualSync);
-    document.getElementById('auto-sync-toggle').addEventListener('change', handleAutoSyncToggle);
-
-    // Investments
-    document.getElementById('investment-form').addEventListener('submit', handleAddInvestment);
-
-    // Family
-    document.getElementById('invite-family-btn').addEventListener('click', handleInviteFamily);
-
-    // Credit Cards
-    document.getElementById('credit-card-form').addEventListener('submit', handleAddCreditCard);
-
-    // Monthly Bills
-    document.getElementById('bill-form').addEventListener('submit', handleAddBill);
-
-    // PWA prompt
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        document.getElementById('install-pwa-btn').style.display = 'block';
-    });
-
     // Filters
-    document.getElementById('filter-period').addEventListener('change', (e) => {
+    document.getElementById('filter-period')?.addEventListener('change', (e) => {
         currentFilter = e.target.value;
         updateDashboard();
     });
 
-    document.getElementById('reports-filter').addEventListener('change', (e) => {
+    document.getElementById('reports-filter')?.addEventListener('change', (e) => {
         currentFilter = e.target.value;
         updateReports();
     });
 
-    // Processar transações recorrentes ao carregar
-    processRecurringTransactions();
-    
-    // Carregar tema salvo (chamada redundante removida, já carrega no início)
-    
-    // Carregar config do Supabase
-    loadSupabaseConfig();
+    // Password strength indicator
+    const registerPassword = document.getElementById('register-password');
+    if (registerPassword) {
+        registerPassword.addEventListener('input', (e) => {
+            const password = e.target.value;
+            const strengthDiv = document.getElementById('password-strength');
+            const strengthFill = document.getElementById('strength-bar-fill');
+            const strengthText = document.getElementById('strength-text');
+            
+            if (!strengthDiv || !strengthFill || !strengthText) return;
+            
+            if (password.length === 0) {
+                strengthDiv.classList.add('hidden');
+                return;
+            }
+            
+            strengthDiv.classList.remove('hidden');
+            const strength = checkPasswordStrength(password);
+            
+            strengthFill.className = `strength-bar-fill ${strength.class}`;
+            strengthText.className = `strength-text ${strength.class}`;
+            strengthText.textContent = strength.text;
+        });
+    }
 }
 
-// Autenticação
-async function handleLogin(e) {
-    e.preventDefault();
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
-
-    console.log('Tentando login com:', email);
-    console.log('Usuários disponíveis:', DB.users.length);
-
-    // Verificar no storage local primeiro
-    const user = DB.users.find(u => u.email === email && atob(u.password) === password);
-
-    if (!user) {
-        showAlert('login-error', 'Email ou senha incorretos');
-        console.log('Login falhou - credenciais inválidas');
-        return;
-    }
-
-    console.log('Login bem-sucedido!', user.email);
-
-    DB.currentUser = user;
-    
-    // SALVAR IMEDIATAMENTE
-    await saveData();
-    
-    console.log('Usuário atual salvo:', DB.currentUser.email);
-    
-    // Carregar dados do Supabase se configurado
-    if (supabaseClient) {
-        await loadFromSupabase();
-    }
-    
-    hideAlert('login-error');
-    showMainApp();
-}
-
+// ========== FIREBASE AUTH ==========
 async function handleRegister(e) {
     e.preventDefault();
+    
     const name = document.getElementById('register-name').value;
     const email = document.getElementById('register-email').value;
     const password = document.getElementById('register-password').value;
     const confirm = document.getElementById('register-confirm').value;
+    const acceptTerms = document.getElementById('accept-terms').checked;
 
+    // Validações
     if (!name || !email || !password) {
         showAlert('register-error', 'Preencha todos os campos');
         return;
     }
 
-    if (password.length < 6) {
-        showAlert('register-error', 'A senha deve ter no mínimo 6 caracteres');
+    if (!acceptTerms) {
+        showAlert('register-error', 'Você precisa aceitar os termos de uso');
+        return;
+    }
+
+    if (password.length < 8) {
+        showAlert('register-error', 'A senha deve ter no mínimo 8 caracteres');
         return;
     }
 
@@ -446,2029 +229,220 @@ async function handleRegister(e) {
         return;
     }
 
-    if (DB.users.find(u => u.email === email)) {
-        showAlert('register-error', 'Email já cadastrado');
+    const strength = checkPasswordStrength(password);
+    if (strength.score < 3) {
+        showAlert('register-error', 'Senha muito fraca. Use letras maiúsculas, minúsculas, números e caracteres especiais');
         return;
     }
 
-    const newUser = {
-        id: Date.now(),
-        name,
-        email,
-        password: btoa(password),
-        createdAt: new Date().toISOString()
-    };
-
-    DB.users.push(newUser);
-    
-    // SALVAR IMEDIATAMENTE
-    await saveData();
-    
-    console.log('Usuário registrado:', email);
-    console.log('Total de usuários:', DB.users.length);
-    
-    // Salvar no Supabase se configurado
-    if (supabaseClient) {
-        try {
-            await supabaseClient.from('users').insert([{
-                id: newUser.id,
-                name: newUser.name,
-                email: newUser.email,
-                created_at: newUser.createdAt
-            }]);
-            console.log('Usuário salvo no Supabase');
-        } catch (err) {
-            console.log('Erro ao salvar usuário no Supabase:', err);
-        }
+    try {
+        // Criar usuário no Firebase Auth
+        const userCredential = await window.auth.createUserWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+        
+        // Atualizar perfil
+        await user.updateProfile({ displayName: name });
+        
+        // Salvar dados adicionais no Firestore
+        await window.db.collection('users').doc(user.uid).set({
+            name: name,
+            email: email,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        // Inicializar categorias padrão
+        const batch = window.db.batch();
+        DEFAULT_CATEGORIES.forEach((cat, index) => {
+            const ref = window.db.collection('users').doc(user.uid).collection('categories').doc();
+            batch.set(ref, {
+                name: cat.name,
+                type: cat.type,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        });
+        await batch.commit();
+        
+        console.log('✅ Usuário registrado:', email);
+        
+        showAlert('register-success', 'Conta criada com sucesso! Redirecionando...');
+        
+        setTimeout(() => {
+            hideAlert('register-success');
+            document.getElementById('register-page').classList.add('hidden');
+            document.getElementById('login-page').classList.remove('hidden');
+            document.getElementById('register-form').reset();
+        }, 2000);
+        
+    } catch (error) {
+        console.error('Erro ao registrar:', error);
+        showAlert('register-error', getFirebaseErrorMessage(error.code));
     }
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
     
-    showAlert('register-success', 'Conta criada com sucesso! Faça login para continuar.');
-    
-    setTimeout(() => {
-        hideAlert('register-success');
-        document.getElementById('register-page').classList.add('hidden');
-        document.getElementById('login-page').classList.remove('hidden');
-        document.getElementById('register-form').reset();
-    }, 2000);
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+
+    console.log('Tentando login...');
+
+    try {
+        await window.auth.signInWithEmailAndPassword(email, password);
+        console.log('✅ Login bem-sucedido!');
+        hideAlert('login-error');
+    } catch (error) {
+        console.error('Erro ao fazer login:', error);
+        showAlert('login-error', getFirebaseErrorMessage(error.code));
+    }
 }
 
 async function handleLogout() {
     if (confirm('Deseja realmente sair?')) {
-        // Limpar apenas o usuário atual, MAS manter os dados salvos
-        DB.currentUser = null;
-        
-        // Remover apenas currentUser do localStorage
-        localStorage.removeItem('fincontrol_current_user');
-        
-        // Resetar interface
-        document.getElementById('main-app').classList.add('hidden');
-        document.getElementById('login-page').classList.remove('hidden');
-        document.getElementById('register-page').classList.add('hidden');
-        
-        // Limpar formulários
-        document.getElementById('login-form').reset();
-        
-        console.log('✅ Logout realizado - dados mantidos, usuário deslogado');
+        try {
+            await window.auth.signOut();
+            DB.currentUser = null;
+            DB.transactions = [];
+            DB.budgets = [];
+            DB.goals = [];
+            DB.investments = [];
+            DB.creditCards = [];
+            DB.monthlyBills = [];
+            
+            document.getElementById('main-app').classList.add('hidden');
+            document.getElementById('login-page').classList.remove('hidden');
+            
+            console.log('✅ Logout realizado');
+        } catch (error) {
+            console.error('Erro ao fazer logout:', error);
+        }
     }
 }
 
-// Navegação
+function getFirebaseErrorMessage(errorCode) {
+    const errors = {
+        'auth/email-already-in-use': 'Este email já está cadastrado',
+        'auth/invalid-email': 'Email inválido',
+        'auth/weak-password': 'Senha muito fraca (mínimo 8 caracteres)',
+        'auth/user-not-found': 'Usuário não encontrado',
+        'auth/wrong-password': 'Senha incorreta',
+        'auth/too-many-requests': 'Muitas tentativas. Tente novamente mais tarde',
+        'auth/network-request-failed': 'Erro de conexão. Verifique sua internet'
+    };
+    
+    return errors[errorCode] || 'Erro desconhecido. Tente novamente';
+}
+
+// ========== CARREGAR DADOS DO FIREBASE ==========
+async function loadUserDataFromFirebase(userId) {
+    try {
+        console.log('📊 Carregando dados do Firebase...');
+        
+        // Carregar categorias
+        const categoriesSnap = await window.db.collection('users').doc(userId)
+            .collection('categories').get();
+        
+        if (!categoriesSnap.empty) {
+            DB.categories = categoriesSnap.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+        } else {
+            DB.categories = DEFAULT_CATEGORIES;
+        }
+        
+        // Carregar transações
+        const transactionsSnap = await window.db.collection('users').doc(userId)
+            .collection('transactions').get();
+        
+        DB.transactions = transactionsSnap.docs.map(doc => ({
+            id: doc.id,
+            userId: userId,
+            ...doc.data()
+        }));
+        
+        // Carregar orçamentos
+        const budgetsSnap = await window.db.collection('users').doc(userId)
+            .collection('budgets').get();
+        
+        DB.budgets = budgetsSnap.docs.map(doc => ({
+            id: doc.id,
+            userId: userId,
+            ...doc.data()
+        }));
+        
+        // Carregar metas
+        const goalsSnap = await window.db.collection('users').doc(userId)
+            .collection('goals').get();
+        
+        DB.goals = goalsSnap.docs.map(doc => ({
+            id: doc.id,
+            userId: userId,
+            ...doc.data()
+        }));
+        
+        // Carregar investimentos
+        const investmentsSnap = await window.db.collection('users').doc(userId)
+            .collection('investments').get();
+        
+        DB.investments = investmentsSnap.docs.map(doc => ({
+            id: doc.id,
+            userId: userId,
+            ...doc.data()
+        }));
+        
+        // Carregar cartões
+        const cardsSnap = await window.db.collection('users').doc(userId)
+            .collection('creditCards').get();
+        
+        DB.creditCards = cardsSnap.docs.map(doc => ({
+            id: doc.id,
+            userId: userId,
+            ...doc.data()
+        }));
+        
+        // Carregar contas mensais
+        const billsSnap = await window.db.collection('users').doc(userId)
+            .collection('monthlyBills').get();
+        
+        DB.monthlyBills = billsSnap.docs.map(doc => ({
+            id: doc.id,
+            userId: userId,
+            ...doc.data()
+        }));
+        
+        console.log('✅ Dados carregados do Firebase:', {
+            transactions: DB.transactions.length,
+            budgets: DB.budgets.length,
+            goals: DB.goals.length,
+            investments: DB.investments.length,
+            creditCards: DB.creditCards.length,
+            monthlyBills: DB.monthlyBills.length
+        });
+        
+    } catch (error) {
+        console.error('❌ Erro ao carregar dados:', error);
+    }
+}
+
+// ========== NAVEGAÇÃO ==========
 function showMainApp() {
     document.getElementById('login-page').classList.add('hidden');
     document.getElementById('register-page').classList.add('hidden');
     document.getElementById('main-app').classList.remove('hidden');
     
-    document.getElementById('user-name').textContent = DB.currentUser.name;
+    if (DB.currentUser) {
+        document.getElementById('user-name').textContent = DB.currentUser.name;
+    }
     navigateTo('dashboard');
 }
 
 function navigateTo(page) {
     document.querySelectorAll('.content-page').forEach(p => p.classList.add('hidden'));
-    document.getElementById(`${page}-page`).classList.remove('hidden');
-    
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.remove('active');
-        if (item.dataset.page === page) {
-            item.classList.add('active');
-        }
-    });
-
-    switch(page) {
-        case 'dashboard':
-            updateDashboard();
-            break;
-        case 'transactions':
-            updateTransactionsList();
-            loadCategories();
-            break;
-        case 'reports':
-            updateReports();
-            break;
-        case 'budgets':
-            updateBudgetsList();
-            break;
-        case 'goals':
-            updateGoalsList();
-            break;
-        case 'settings':
-            updateCategoriesList();
-            loadCategories();
-            break;
+    const pagEl = document.getElementById(`${page}-page`);
+    if (pagEl) {
+        pagEl.classList.remove('hidden');
     }
-}
-
-// Transações
-async function handleAddTransaction(e) {
-    e.preventDefault();
-    
-    const type = document.getElementById('transaction-type').value;
-    const amount = parseFloat(document.getElementById('transaction-amount').value);
-    const category = document.getElementById('transaction-category').value;
-    const date = document.getElementById('transaction-date').value;
-    const description = document.getElementById('transaction-description').value;
-    const isRecurring = document.getElementById('transaction-recurring').checked;
-
-    if (!type || !amount || !category || !date) {
-        showAlert('transaction-error', 'Preencha todos os campos obrigatórios');
-        return;
-    }
-
-    const transaction = {
-        id: Date.now(),
-        userId: DB.currentUser.id,
-        type,
-        amount,
-        category,
-        date,
-        description,
-        createdAt: new Date().toISOString()
-    };
-
-    DB.transactions.push(transaction);
-    
-    console.log('Transação adicionada:', transaction);
-    console.log('Total de transações:', DB.transactions.length);
-    
-    // Se for recorrente, criar registro de recorrência
-    if (isRecurring) {
-        const frequency = document.getElementById('recurring-frequency').value;
-        const endDate = document.getElementById('recurring-end-date').value;
-        
-        const recurringTransaction = {
-            id: Date.now() + 1,
-            userId: DB.currentUser.id,
-            type,
-            amount,
-            category,
-            description,
-            frequency,
-            startDate: date,
-            endDate,
-            lastProcessed: date,
-            createdAt: new Date().toISOString()
-        };
-        
-        DB.recurringTransactions.push(recurringTransaction);
-        console.log('Transação recorrente criada:', recurringTransaction);
-    }
-    
-    // SALVAR IMEDIATAMENTE
-    await saveData();
-    
-    showAlert('transaction-success', 'Transação adicionada com sucesso!');
-    document.getElementById('transaction-form').reset();
-    document.getElementById('recurring-options').classList.add('hidden');
-    updateTransactionsList();
-    loadCategories();
-    
-    // Atualizar dashboard se estiver visível
-    if (document.getElementById('dashboard-page').classList.contains('hidden') === false) {
-        updateDashboard();
-    }
-    
-    setTimeout(() => hideAlert('transaction-success'), 3000);
-}
-
-function updateTransactionsList() {
-    const container = document.getElementById('transactions-list');
-    const transactions = getUserTransactions();
-
-    if (transactions.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-file-invoice"></i>
-                <p>Nenhuma transação registrada</p>
-                <p style="font-size: 14px;">Adicione sua primeira transação acima</p>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = transactions.reverse().map(t => `
-        <div class="transaction-item">
-            <div class="transaction-info">
-                <div class="transaction-icon ${t.type}">
-                    <i class="fas fa-arrow-${t.type === 'income' ? 'up' : 'down'}"></i>
-                </div>
-                <div class="transaction-details">
-                    <h4>${t.category}</h4>
-                    <p>${t.description}</p>
-                    <small>${formatDate(t.date)}</small>
-                </div>
-            </div>
-            <div class="transaction-amount ${t.type}">
-                ${t.type === 'income' ? '+' : '-'} R$ ${t.amount.toFixed(2)}
-            </div>
-        </div>
-    `).join('');
-}
-
-// Orçamentos
-async function handleAddBudget(e) {
-    e.preventDefault();
-    
-    const category = document.getElementById('budget-category').value;
-    const amount = parseFloat(document.getElementById('budget-amount').value);
-
-    if (!category || !amount) {
-        showAlert('budget-error', 'Preencha todos os campos');
-        return;
-    }
-
-    const budget = {
-        id: Date.now(),
-        userId: DB.currentUser.id,
-        category,
-        amount,
-        createdAt: new Date().toISOString()
-    };
-
-    DB.budgets.push(budget);
-    await saveData();
-    
-    showAlert('budget-success', 'Orçamento definido com sucesso!');
-    document.getElementById('budget-form').reset();
-    updateBudgetsList();
-    
-    setTimeout(() => hideAlert('budget-success'), 3000);
-}
-
-function updateBudgetsList() {
-    const container = document.getElementById('budgets-list');
-    const budgets = getUserBudgets();
-
-    if (budgets.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-credit-card"></i>
-                <p>Nenhum orçamento definido</p>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = budgets.map(budget => {
-        const spent = calculateBudgetSpent(budget.category);
-        const percentage = (spent / budget.amount) * 100;
-        const status = percentage >= 100 ? 'danger' : percentage >= 80 ? 'warning' : 'success';
-
-        return `
-            <div class="budget-item">
-                <div class="budget-header">
-                    <h4 class="budget-name">${budget.category}</h4>
-                    <span class="budget-percentage ${status}">${percentage.toFixed(0)}%</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill ${status}" style="width: ${Math.min(percentage, 100)}%"></div>
-                </div>
-                <div class="budget-info">
-                    <span>Gasto: R$ ${spent.toFixed(2)}</span>
-                    <span>Limite: R$ ${budget.amount.toFixed(2)}</span>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-// Metas
-async function handleAddGoal(e) {
-    e.preventDefault();
-    
-    const name = document.getElementById('goal-name').value;
-    const targetAmount = parseFloat(document.getElementById('goal-amount').value);
-    const deadline = document.getElementById('goal-deadline').value;
-
-    if (!name || !targetAmount || !deadline) {
-        showAlert('goal-error', 'Preencha todos os campos');
-        return;
-    }
-
-    const goal = {
-        id: Date.now(),
-        userId: DB.currentUser.id,
-        name,
-        targetAmount,
-        currentAmount: 0,
-        deadline,
-        createdAt: new Date().toISOString()
-    };
-
-    DB.goals.push(goal);
-    await saveData();
-    
-    showAlert('goal-success', 'Meta criada com sucesso!');
-    document.getElementById('goal-form').reset();
-    updateGoalsList();
-    
-    setTimeout(() => hideAlert('goal-success'), 3000);
-}
-
-function updateGoalsList() {
-    const container = document.getElementById('goals-list');
-    const goals = getUserGoals();
-
-    if (goals.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-bullseye"></i>
-                <p>Nenhuma meta definida</p>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = goals.map(goal => {
-        const progress = (goal.currentAmount / goal.targetAmount) * 100;
-        const daysLeft = Math.ceil((new Date(goal.deadline) - new Date()) / (1000 * 60 * 60 * 24));
-
-        return `
-            <div class="goal-item">
-                <div class="goal-header">
-                    <h4 class="goal-name">${goal.name}</h4>
-                    <div class="goal-icon">
-                        <i class="fas fa-award"></i>
-                    </div>
-                </div>
-                <div class="goal-progress">
-                    <span>Progresso</span>
-                    <span class="goal-percentage">${progress.toFixed(0)}%</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill success" style="width: ${Math.min(progress, 100)}%"></div>
-                </div>
-                <div class="goal-stats">
-                    <div class="goal-stat">
-                        <span>Economizado:</span>
-                        <span>R$ ${goal.currentAmount.toFixed(2)}</span>
-                    </div>
-                    <div class="goal-stat">
-                        <span>Meta:</span>
-                        <span>R$ ${goal.targetAmount.toFixed(2)}</span>
-                    </div>
-                    <div class="goal-stat ${daysLeft < 30 ? 'deadline' : ''}">
-                        <span>Prazo:</span>
-                        <span>${daysLeft > 0 ? daysLeft + ' dias' : 'Expirado'}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-// Dashboard
-function updateDashboard() {
-    const totals = calculateTotals();
-    
-    // Atualizar cards
-    document.getElementById('total-income').textContent = `R$ ${totals.income.toFixed(2)}`;
-    document.getElementById('total-expense').textContent = `R$ ${totals.expense.toFixed(2)}`;
-    document.getElementById('total-balance').textContent = `R$ ${totals.balance.toFixed(2)}`;
-    
-    const total = totals.income + totals.expense;
-    document.getElementById('income-percentage').textContent = 
-        `${((totals.income / total) * 100 || 0).toFixed(1)}% do total`;
-    document.getElementById('expense-percentage').textContent = 
-        `${((totals.expense / total) * 100 || 0).toFixed(1)}% do total`;
-    document.getElementById('balance-status').textContent = 
-        totals.balance >= 0 ? 'Situação positiva' : 'Atenção necessária';
-    
-    const balanceCard = document.querySelector('.balance-card');
-    if (totals.balance < 0) {
-        balanceCard.classList.add('negative');
-    } else {
-        balanceCard.classList.remove('negative');
-    }
-    
-    // Atualizar alertas
-    updateAlerts();
-    
-    // Atualizar transações recentes
-    updateRecentTransactions();
-    
-    // Atualizar preview de metas
-    updateGoalsPreview();
-    
-    // Atualizar gráfico
-    updateEvolutionChart();
-}
-
-function updateAlerts() {
-    const container = document.getElementById('alerts-container');
-    const alerts = [];
-    
-    // Verificar orçamentos
-    const budgets = getUserBudgets();
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    
-    budgets.forEach(budget => {
-        const spent = calculateBudgetSpent(budget.category);
-        const percentage = (spent / budget.amount) * 100;
-        
-        if (percentage >= 100) {
-            alerts.push({
-                type: 'danger',
-                message: `Orçamento de ${budget.category} excedido! (${percentage.toFixed(0)}%)`
-            });
-        } else if (percentage >= 80) {
-            alerts.push({
-                type: 'warning',
-                message: `Orçamento de ${budget.category} em ${percentage.toFixed(0)}% do limite`
-            });
-        }
-    });
-    
-    if (alerts.length === 0) {
-        container.innerHTML = '';
-        return;
-    }
-    
-    container.innerHTML = alerts.map(alert => `
-        <div class="alert alert-${alert.type}">
-            <i class="fas fa-exclamation-triangle"></i>
-            ${alert.message}
-        </div>
-    `).join('');
-}
-
-function updateRecentTransactions() {
-    const container = document.getElementById('recent-transactions');
-    const transactions = getFilteredTransactions().slice(-6).reverse();
-    
-    if (transactions.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state" style="padding: 32px 0;">
-                <i class="fas fa-file-invoice" style="font-size: 48px;"></i>
-                <p style="font-size: 14px;">Nenhuma transação registrada</p>
-            </div>
-        `;
-        return;
-    }
-    
-    container.innerHTML = transactions.map(t => `
-        <div class="transaction-item" style="margin-bottom: 8px;">
-            <div class="transaction-info">
-                <div class="transaction-icon ${t.type}">
-                    <i class="fas fa-arrow-${t.type === 'income' ? 'up' : 'down'}"></i>
-                </div>
-                <div class="transaction-details">
-                    <h4 style="font-size: 14px;">${t.category}</h4>
-                    <small>${formatDate(t.date)}</small>
-                </div>
-            </div>
-            <div class="transaction-amount ${t.type}" style="font-size: 16px;">
-                ${t.type === 'income' ? '+' : '-'} R$ ${t.amount.toFixed(2)}
-            </div>
-        </div>
-    `).join('');
-}
-
-function updateGoalsPreview() {
-    const container = document.getElementById('goals-preview');
-    const goals = getUserGoals().slice(0, 3);
-    
-    if (goals.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state" style="padding: 32px 0;">
-                <i class="fas fa-bullseye" style="font-size: 48px;"></i>
-                <p style="font-size: 14px; margin-bottom: 12px;">Nenhuma meta definida</p>
-                <button class="btn btn-primary" data-page="goals" style="padding: 8px 16px; font-size: 14px;">
-                    Criar Meta
-                </button>
-            </div>
-        `;
-        
-        container.querySelector('button').addEventListener('click', () => navigateTo('goals'));
-        return;
-    }
-    
-    container.innerHTML = goals.map(goal => {
-        const progress = (goal.currentAmount / goal.targetAmount) * 100;
-        
-        return `
-            <div style="padding: 16px; background: var(--gray-50); border-radius: 12px; margin-bottom: 12px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span style="font-weight: 600; font-size: 14px;">${goal.name}</span>
-                    <span style="font-weight: 700; color: var(--primary); font-size: 14px;">${progress.toFixed(0)}%</span>
-                </div>
-                <div class="progress-bar" style="height: 8px; margin-bottom: 8px;">
-                    <div class="progress-fill success" style="width: ${Math.min(progress, 100)}%"></div>
-                </div>
-                <div style="font-size: 12px; color: var(--gray-600);">
-                    R$ ${goal.currentAmount.toFixed(2)} de R$ ${goal.targetAmount.toFixed(2)}
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-function updateEvolutionChart() {
-    const ctx = document.getElementById('evolution-chart');
-    const data = getChartData();
-    
-    if (charts.evolution) {
-        charts.evolution.destroy();
-    }
-    
-    if (data.length === 0) {
-        ctx.parentElement.innerHTML = '<p class="empty-state">Sem dados para exibir</p>';
-        return;
-    }
-    
-    charts.evolution = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: data.map(d => d.month),
-            datasets: [
-                {
-                    label: 'Receitas',
-                    data: data.map(d => d.income),
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                },
-                {
-                    label: 'Despesas',
-                    data: data.map(d => d.expense),
-                    borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    position: 'top'
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
-}
-
-// Relatórios
-function updateReports() {
-    updateTemporalChart();
-    updateComparisonChart();
-    updateDistributionChart();
-}
-
-function updateTemporalChart() {
-    const ctx = document.getElementById('temporal-chart');
-    const data = getChartData();
-    
-    if (charts.temporal) {
-        charts.temporal.destroy();
-    }
-    
-    if (data.length === 0) {
-        ctx.parentElement.innerHTML = '<p class="empty-state">Sem dados para exibir</p>';
-        return;
-    }
-    
-    charts.temporal = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: data.map(d => d.month),
-            datasets: [
-                {
-                    label: 'Receitas',
-                    data: data.map(d => d.income),
-                    borderColor: '#10b981',
-                    borderWidth: 3,
-                    tension: 0.4
-                },
-                {
-                    label: 'Despesas',
-                    data: data.map(d => d.expense),
-                    borderColor: '#ef4444',
-                    borderWidth: 3,
-                    tension: 0.4
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    position: 'top'
-                }
-            }
-        }
-    });
-}
-
-function updateComparisonChart() {
-    const ctx = document.getElementById('comparison-chart');
-    const data = getChartData();
-    
-    if (charts.comparison) {
-        charts.comparison.destroy();
-    }
-    
-    if (data.length === 0) {
-        ctx.parentElement.innerHTML = '<p class="empty-state">Sem dados para exibir</p>';
-        return;
-    }
-    
-    charts.comparison = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: data.map(d => d.month),
-            datasets: [
-                {
-                    label: 'Receitas',
-                    data: data.map(d => d.income),
-                    backgroundColor: '#10b981'
-                },
-                {
-                    label: 'Despesas',
-                    data: data.map(d => d.expense),
-                    backgroundColor: '#ef4444'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    position: 'top'
-                }
-            }
-        }
-    });
-}
-
-function updateDistributionChart() {
-    const ctx = document.getElementById('distribution-chart');
-    const data = getCategoryData();
-    
-    if (charts.distribution) {
-        charts.distribution.destroy();
-    }
-    
-    if (data.length === 0) {
-        ctx.parentElement.innerHTML = '<p class="empty-state">Sem dados para exibir</p>';
-        return;
-    }
-    
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
-    
-    charts.distribution = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: data.map(d => d.name),
-            datasets: [{
-                data: data.map(d => d.value),
-                backgroundColor: colors
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                }
-            }
-        }
-    });
-}
-
-// Funções auxiliares
-function getUserTransactions() {
-    return DB.transactions.filter(t => t.userId === DB.currentUser.id);
-}
-
-function getUserBudgets() {
-    return DB.budgets.filter(b => b.userId === DB.currentUser.id);
-}
-
-function getUserGoals() {
-    return DB.goals.filter(g => g.userId === DB.currentUser.id);
-}
-
-function getFilteredTransactions() {
-    const transactions = getUserTransactions();
-    const now = new Date();
-    let startDate;
-    
-    switch(currentFilter) {
-        case 'week':
-            startDate = new Date(now.setDate(now.getDate() - 7));
-            break;
-        case 'month':
-            startDate = new Date(now.setMonth(now.getMonth() - 1));
-            break;
-        case 'year':
-            startDate = new Date(now.setFullYear(now.getFullYear() - 1));
-            break;
-        default:
-            return transactions;
-    }
-    
-    return transactions.filter(t => new Date(t.date) >= startDate);
-}
-
-function calculateTotals() {
-    const filtered = getFilteredTransactions();
-    const income = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-    const expense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-    return { income, expense, balance: income - expense };
-}
-
-function calculateBudgetSpent(category) {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    
-    return getUserTransactions()
-        .filter(t => t.type === 'expense' && t.category === category && new Date(t.date) >= monthStart)
-        .reduce((sum, t) => sum + t.amount, 0);
-}
-
-function getChartData() {
-    const filtered = getFilteredTransactions();
-    const grouped = {};
-    
-    filtered.forEach(t => {
-        const date = new Date(t.date);
-        const month = date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
-        
-        if (!grouped[month]) {
-            grouped[month] = { month, income: 0, expense: 0 };
-        }
-        grouped[month][t.type] += t.amount;
-    });
-    
-    return Object.values(grouped).sort((a, b) => {
-        const dateA = new Date(a.month);
-        const dateB = new Date(b.month);
-        return dateA - dateB;
-    });
-}
-
-function getCategoryData() {
-    const filtered = getFilteredTransactions().filter(t => t.type === 'expense');
-    const grouped = {};
-    
-    filtered.forEach(t => {
-        if (!grouped[t.category]) {
-            grouped[t.category] = { name: t.category, value: 0 };
-        }
-        grouped[t.category].value += t.amount;
-    });
-    
-    return Object.values(grouped);
-}
-
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', { 
-        day: '2-digit', 
-        month: 'long', 
-        year: 'numeric' 
-    });
-}
-
-function showAlert(id, message) {
-    const alert = document.getElementById(id);
-    alert.textContent = message;
-    alert.classList.remove('hidden');
-}
-
-function hideAlert(id) {
-    document.getElementById(id).classList.add('hidden');
-}
-
-// Categorias
-function loadCategories() {
-    const select = document.getElementById('transaction-category');
-    const categories = DB.categories;
-    
-    select.innerHTML = '<option value="">Selecione uma categoria</option>';
-    
-    categories.forEach(cat => {
-        const option = document.createElement('option');
-        option.value = cat.name;
-        option.textContent = cat.name;
-        select.appendChild(option);
-    });
-}
-
-async function handleAddCategory() {
-    const name = document.getElementById('new-category-name').value.trim();
-    const type = document.getElementById('new-category-type').value;
-    
-    if (!name) return;
-    
-    const newCategory = {
-        id: Date.now(),
-        name,
-        type
-    };
-    
-    DB.categories.push(newCategory);
-    await saveData();
-    
-    document.getElementById('new-category-name').value = '';
-    showAlert('categories-success', 'Categoria adicionada com sucesso!');
-    setTimeout(() => hideAlert('categories-success'), 3000);
-    
-    updateCategoriesList();
-    loadCategories();
-}
-
-function updateCategoriesList() {
-    const container = document.getElementById('categories-list');
-    
-    container.innerHTML = DB.categories.map(cat => `
-        <div class="category-item">
-            <div class="category-info">
-                <span style="font-weight: 600;">${cat.name}</span>
-                <span class="category-badge ${cat.type}">${cat.type === 'income' ? 'Receita' : cat.type === 'expense' ? 'Despesa' : 'Ambos'}</span>
-            </div>
-            <button class="category-delete" onclick="deleteCategory(${cat.id})">
-                <i class="fas fa-trash"></i>
-            </button>
-        </div>
-    `).join('');
-}
-
-async function deleteCategory(id) {
-    if (!confirm('Deseja realmente excluir esta categoria?')) return;
-    
-    DB.categories = DB.categories.filter(c => c.id !== id);
-    await saveData();
-    updateCategoriesList();
-    loadCategories();
-}
-
-// Transações Recorrentes
-async function processRecurringTransactions() {
-    const now = new Date();
-    
-    for (const recurring of DB.recurringTransactions) {
-        const lastDate = new Date(recurring.lastProcessed || recurring.startDate);
-        const endDate = recurring.endDate ? new Date(recurring.endDate) : null;
-        
-        if (endDate && now > endDate) continue;
-        
-        let nextDate = new Date(lastDate);
-        
-        switch (recurring.frequency) {
-            case 'daily':
-                nextDate.setDate(nextDate.getDate() + 1);
-                break;
-            case 'weekly':
-                nextDate.setDate(nextDate.getDate() + 7);
-                break;
-            case 'monthly':
-                nextDate.setMonth(nextDate.getMonth() + 1);
-                break;
-            case 'yearly':
-                nextDate.setFullYear(nextDate.getFullYear() + 1);
-                break;
-        }
-        
-        if (nextDate <= now) {
-            const transaction = {
-                id: Date.now() + Math.random(),
-                userId: recurring.userId,
-                type: recurring.type,
-                amount: recurring.amount,
-                category: recurring.category,
-                date: nextDate.toISOString().split('T')[0],
-                description: recurring.description + ' (Recorrente)',
-                createdAt: new Date().toISOString()
-            };
-            
-            DB.transactions.push(transaction);
-            recurring.lastProcessed = nextDate.toISOString();
-            await saveData();
-        }
-    }
-}
-
-// Exportação PDF
-async function exportToPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    const transactions = getFilteredTransactions();
-    const totals = calculateTotals();
-    
-    // Título
-    doc.setFontSize(20);
-    doc.setTextColor(37, 99, 235);
-    doc.text('FinControl Pro - Relatório Financeiro', 20, 20);
-    
-    // Informações do usuário
-    doc.setFontSize(12);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Usuário: ${DB.currentUser.name}`, 20, 35);
-    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 20, 42);
-    doc.text(`Período: ${currentFilter}`, 20, 49);
-    
-    // Resumo
-    doc.setFontSize(14);
-    doc.text('Resumo Financeiro', 20, 65);
-    doc.setFontSize(11);
-    doc.text(`Receitas: R$ ${totals.income.toFixed(2)}`, 20, 75);
-    doc.text(`Despesas: R$ ${totals.expense.toFixed(2)}`, 20, 82);
-    doc.text(`Saldo: R$ ${totals.balance.toFixed(2)}`, 20, 89);
-    
-    // Transações
-    doc.setFontSize(14);
-    doc.text('Transações', 20, 105);
-    
-    let y = 115;
-    doc.setFontSize(9);
-    
-    transactions.slice(-20).reverse().forEach(t => {
-        if (y > 270) {
-            doc.addPage();
-            y = 20;
-        }
-        
-        const typeIcon = t.type === 'income' ? '+' : '-';
-        const text = `${formatDate(t.date)} | ${t.category} | ${typeIcon} R$ ${t.amount.toFixed(2)}`;
-        doc.text(text, 20, y);
-        y += 7;
-    });
-    
-    // Rodapé
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(128, 128, 128);
-        doc.text('Desenvolvido por FELIPE ANDRADE DEV', 20, 285);
-        doc.text(`Página ${i} de ${pageCount}`, 170, 285);
-    }
-    
-    doc.save(`FinControl_Relatorio_${new Date().getTime()}.pdf`);
-}
-
-// Exportação Excel
-function exportToExcel() {
-    const transactions = getFilteredTransactions();
-    const totals = calculateTotals();
-    
-    // Preparar dados
-    const data = transactions.map(t => ({
-        'Data': formatDate(t.date),
-        'Tipo': t.type === 'income' ? 'Receita' : 'Despesa',
-        'Categoria': t.category,
-        'Valor': t.amount,
-        'Descrição': t.description
-    }));
-    
-    // Adicionar resumo
-    data.unshift({});
-    data.unshift({
-        'Data': 'RESUMO',
-        'Tipo': '',
-        'Categoria': 'Saldo',
-        'Valor': totals.balance,
-        'Descrição': ''
-    });
-    data.unshift({
-        'Data': '',
-        'Tipo': '',
-        'Categoria': 'Despesas',
-        'Valor': totals.expense,
-        'Descrição': ''
-    });
-    data.unshift({
-        'Data': '',
-        'Tipo': '',
-        'Categoria': 'Receitas',
-        'Valor': totals.income,
-        'Descrição': ''
-    });
-    data.unshift({
-        'Data': `Relatório gerado em ${new Date().toLocaleDateString('pt-BR')}`,
-        'Tipo': '',
-        'Categoria': '',
-        'Valor': '',
-        'Descrição': ''
-    });
-    
-    // Criar workbook
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Transações');
-    
-    // Download
-    XLSX.writeFile(wb, `FinControl_Relatorio_${new Date().getTime()}.xlsx`);
-}
-
-// Backup e Restauração
-function handleBackup() {
-    const backup = {
-        version: '2.0',
-        date: new Date().toISOString(),
-        user: DB.currentUser,
-        data: {
-            transactions: getUserTransactions(),
-            budgets: getUserBudgets(),
-            goals: getUserGoals(),
-            categories: DB.categories,
-            recurringTransactions: DB.recurringTransactions.filter(r => r.userId === DB.currentUser.id)
-        }
-    };
-    
-    const dataStr = JSON.stringify(backup, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `FinControl_Backup_${new Date().getTime()}.json`;
-    link.click();
-    
-    showAlert('backup-success', 'Backup criado com sucesso!');
-    setTimeout(() => hideAlert('backup-success'), 3000);
-}
-
-async function handleRestore(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-        try {
-            const backup = JSON.parse(event.target.result);
-            
-            if (!backup.version || !backup.data) {
-                showAlert('backup-error', 'Arquivo de backup inválido!');
-                return;
-            }
-            
-            if (!confirm('Deseja restaurar este backup? Os dados atuais serão substituídos.')) {
-                return;
-            }
-            
-            // Restaurar dados
-            const userId = DB.currentUser.id;
-            
-            // Remover dados antigos do usuário
-            DB.transactions = DB.transactions.filter(t => t.userId !== userId);
-            DB.budgets = DB.budgets.filter(b => b.userId !== userId);
-            DB.goals = DB.goals.filter(g => g.userId !== userId);
-            DB.recurringTransactions = DB.recurringTransactions.filter(r => r.userId !== userId);
-            
-            // Adicionar dados do backup
-            DB.transactions.push(...backup.data.transactions);
-            DB.budgets.push(...backup.data.budgets);
-            DB.goals.push(...backup.data.goals);
-            if (backup.data.categories) {
-                DB.categories = backup.data.categories;
-            }
-            if (backup.data.recurringTransactions) {
-                DB.recurringTransactions.push(...backup.data.recurringTransactions);
-            }
-            
-            await saveData();
-            
-            showAlert('backup-success', 'Backup restaurado com sucesso!');
-            setTimeout(() => {
-                hideAlert('backup-success');
-                navigateTo('dashboard');
-            }, 2000);
-            
-        } catch (err) {
-            showAlert('backup-error', 'Erro ao restaurar backup: ' + err.message);
-        }
-    };
-    reader.readAsText(file);
-}
-
-async function handleClearData() {
-    if (!confirm('ATENÇÃO: Esta ação irá apagar TODOS os seus dados permanentemente. Deseja continuar?')) {
-        return;
-    }
-    
-    if (!confirm('Tem certeza? Esta ação não pode ser desfeita!')) {
-        return;
-    }
-    
-    const userId = DB.currentUser.id;
-    
-    DB.transactions = DB.transactions.filter(t => t.userId !== userId);
-    DB.budgets = DB.budgets.filter(b => b.userId !== userId);
-    DB.goals = DB.goals.filter(g => g.userId !== userId);
-    DB.recurringTransactions = DB.recurringTransactions.filter(r => r.userId !== userId);
-    
-    await saveData();
-    
-    alert('Todos os dados foram apagados com sucesso!');
-    navigateTo('dashboard');
-}
-
-// PWA Install
-async function handleInstallPWA() {
-    if (!deferredPrompt) {
-        alert('Este app já está instalado ou seu navegador não suporta instalação.');
-        return;
-    }
-    
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-        alert('App instalado com sucesso!');
-    }
-    
-    deferredPrompt = null;
-    document.getElementById('install-pwa-btn').style.display = 'none';
-}
-
-// Modo Escuro
-function loadTheme() {
-    const savedTheme = localStorage.getItem('fincontrol-theme') || 'light';
-    applyTheme(savedTheme);
-}
-
-function applyTheme(theme) {
-    const body = document.body;
-    const themeIcon = document.querySelector('#theme-toggle i');
-    
-    // Remover classes anteriores
-    body.classList.remove('light-theme', 'dark-theme');
-    
-    // Atualizar botões de seleção de tema (se estiverem na página)
-    document.querySelectorAll('.theme-option').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.dataset.theme === theme) {
-            btn.classList.add('active');
-        }
-    });
-    
-    if (theme === 'auto') {
-        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        body.classList.add(isDark ? 'dark-theme' : 'light-theme');
-        if (themeIcon) {
-            themeIcon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
-        }
-    } else {
-        body.classList.add(`${theme}-theme`);
-        if (themeIcon) {
-            themeIcon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-        }
-    }
-    
-    localStorage.setItem('fincontrol-theme', theme);
-}
-
-function setTheme(theme) {
-    applyTheme(theme);
-}
-
-function toggleTheme() {
-    const currentTheme = localStorage.getItem('fincontrol-theme') || 'light';
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    applyTheme(newTheme);
-}
-
-// Supabase Integration
-async function initializeSupabaseOnLoad() {
-    // Tentar carregar config salva do localStorage
-    try {
-        const savedConfig = localStorage.getItem('fincontrol_supabase_config');
-        if (savedConfig) {
-            const config = JSON.parse(savedConfig);
-            if (config.url && config.key) {
-                supabaseConfig = config;
-            }
-        }
-    } catch (err) {
-        console.log('Config do Supabase não encontrada');
-    }
-    
-    // Se há configuração padrão no código, usar ela
-    if (SUPABASE_CONFIG.enabled && SUPABASE_CONFIG.url && SUPABASE_CONFIG.key) {
-        supabaseConfig.url = SUPABASE_CONFIG.url;
-        supabaseConfig.key = SUPABASE_CONFIG.key;
-    }
-    
-    // Inicializar se houver URL e Key
-    if (supabaseConfig.url && supabaseConfig.key && 
-        supabaseConfig.url !== 'SUA_URL_SUPABASE_AQUI' && 
-        supabaseConfig.key !== 'SUA_CHAVE_SUPABASE_AQUI') {
-        initializeSupabase();
-    }
-}
-
-async function loadSupabaseConfig() {
-    try {
-        const savedConfig = localStorage.getItem('fincontrol_supabase_config');
-        if (savedConfig) {
-            supabaseConfig = JSON.parse(savedConfig);
-            document.getElementById('supabase-url').value = supabaseConfig.url || '';
-            document.getElementById('supabase-key').value = supabaseConfig.key || '';
-            document.getElementById('auto-sync-toggle').checked = supabaseConfig.autoSync || false;
-            
-            if (supabaseConfig.url && supabaseConfig.key) {
-                initializeSupabase();
-            }
-        }
-    } catch (err) {
-        console.log('Config do Supabase não encontrada');
-    }
-}
-
-async function handleSaveSupabase() {
-    const url = document.getElementById('supabase-url').value.trim();
-    const key = document.getElementById('supabase-key').value.trim();
-    
-    if (!url || !key) {
-        showAlert('supabase-error', 'Preencha todos os campos');
-        return;
-    }
-    
-    supabaseConfig.url = url;
-    supabaseConfig.key = key;
-    
-    // Salvar no localStorage
-    localStorage.setItem('fincontrol_supabase_config', JSON.stringify(supabaseConfig));
-    
-    initializeSupabase();
-    showAlert('supabase-success', 'Configuração salva com sucesso!');
-    setTimeout(() => hideAlert('supabase-success'), 3000);
-}
-
-function initializeSupabase() {
-    try {
-        const { createClient } = window.supabase;
-        supabaseClient = createClient(supabaseConfig.url, supabaseConfig.key);
-        
-        document.getElementById('manual-sync-btn').disabled = false;
-        document.getElementById('sync-status-text').textContent = 'Conectado';
-        document.getElementById('sync-status-text').style.color = 'var(--success)';
-    } catch (err) {
-        console.error('Erro ao inicializar Supabase:', err);
-        showAlert('supabase-error', 'Erro ao conectar com Supabase');
-    }
-}
-
-async function syncWithSupabase() {
-    if (!supabaseClient) {
-        console.log('Supabase não configurado, pulando sincronização');
-        return;
-    }
-    
-    try {
-        console.log('Sincronizando com Supabase...');
-        
-        const userId = DB.currentUser.email;
-        
-        // Sincronizar transações
-        const userTransactions = getUserTransactions();
-        for (const transaction of userTransactions) {
-            await supabaseClient.from('transactions').upsert({
-                id: transaction.id,
-                user_id: userId,
-                type: transaction.type,
-                amount: transaction.amount,
-                category: transaction.category,
-                date: transaction.date,
-                description: transaction.description,
-                created_at: transaction.createdAt,
-                synced_at: new Date().toISOString()
-            }, { onConflict: 'id' });
-        }
-        
-        // Sincronizar orçamentos
-        const userBudgets = getUserBudgets();
-        for (const budget of userBudgets) {
-            await supabaseClient.from('budgets').upsert({
-                id: budget.id,
-                user_id: userId,
-                category: budget.category,
-                amount: budget.amount,
-                created_at: budget.createdAt,
-                synced_at: new Date().toISOString()
-            }, { onConflict: 'id' });
-        }
-        
-        // Sincronizar metas
-        const userGoals = getUserGoals();
-        for (const goal of userGoals) {
-            await supabaseClient.from('goals').upsert({
-                id: goal.id,
-                user_id: userId,
-                name: goal.name,
-                target_amount: goal.targetAmount,
-                current_amount: goal.currentAmount,
-                deadline: goal.deadline,
-                created_at: goal.createdAt,
-                synced_at: new Date().toISOString()
-            }, { onConflict: 'id' });
-        }
-        
-        // Sincronizar investimentos
-        const userInvestments = getUserInvestments();
-        for (const investment of userInvestments) {
-            await supabaseClient.from('investments').upsert({
-                id: investment.id,
-                user_id: userId,
-                name: investment.name,
-                type: investment.type,
-                amount: investment.amount,
-                current_value: investment.currentValue,
-                date: investment.date,
-                yield_rate: investment.yieldRate,
-                created_at: investment.createdAt,
-                synced_at: new Date().toISOString()
-            }, { onConflict: 'id' });
-        }
-        
-        const now = new Date().toLocaleString('pt-BR');
-        const lastSyncEl = document.getElementById('last-sync');
-        if (lastSyncEl) {
-            lastSyncEl.textContent = `Última sincronização: ${now}`;
-        }
-        localStorage.setItem('last-sync', now);
-        
-        console.log('Sincronização concluída com sucesso!');
-        
-    } catch (err) {
-        console.error('Erro na sincronização:', err);
-        throw err;
-    }
-}
-
-async function handleManualSync() {
-    if (!supabaseClient) {
-        showAlert('supabase-error', 'Configure o Supabase primeiro');
-        return;
-    }
-    
-    const btn = document.getElementById('manual-sync-btn');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
-    
-    try {
-        await syncWithSupabase();
-        
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-sync-alt"></i> Sincronizar Agora';
-        
-        showAlert('supabase-success', 'Dados sincronizados com sucesso!');
-        setTimeout(() => hideAlert('supabase-success'), 3000);
-        
-    } catch (err) {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-sync-alt"></i> Sincronizar Agora';
-        showAlert('supabase-error', 'Erro ao sincronizar: ' + err.message);
-    }
-}
-
-async function handleAutoSyncToggle(e) {
-    supabaseConfig.autoSync = e.target.checked;
-    localStorage.setItem('fincontrol_supabase_config', JSON.stringify(supabaseConfig));
-    
-    if (supabaseConfig.autoSync && supabaseClient) {
-        showAlert('supabase-success', 'Sincronização automática ativada!');
-        setTimeout(() => hideAlert('supabase-success'), 2000);
-    }
-}
-
-// Investimentos
-async function handleAddInvestment(e) {
-    e.preventDefault();
-    
-    const name = document.getElementById('investment-name').value;
-    const type = document.getElementById('investment-type').value;
-    const amount = parseFloat(document.getElementById('investment-amount').value);
-    const current = parseFloat(document.getElementById('investment-current').value) || amount;
-    const date = document.getElementById('investment-date').value;
-    const yieldRate = parseFloat(document.getElementById('investment-yield').value) || 0;
-    
-    if (!name || !type || !amount || !date) {
-        showAlert('investment-error', 'Preencha todos os campos obrigatórios');
-        return;
-    }
-    
-    const investment = {
-        id: Date.now(),
-        userId: DB.currentUser.id,
-        name,
-        type,
-        amount,
-        currentValue: current,
-        date,
-        yieldRate,
-        createdAt: new Date().toISOString()
-    };
-    
-    DB.investments.push(investment);
-    await saveData();
-    
-    if (supabaseConfig.autoSync && supabaseClient) {
-        await syncWithSupabase();
-    }
-    
-    showAlert('investment-success', 'Investimento adicionado com sucesso!');
-    document.getElementById('investment-form').reset();
-    updateInvestmentsList();
-    
-    setTimeout(() => hideAlert('investment-success'), 3000);
-}
-
-function updateInvestmentsList() {
-    const container = document.getElementById('investments-list');
-    const investments = getUserInvestments();
-    
-    if (investments.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-chart-line"></i>
-                <p>Nenhum investimento registrado</p>
-            </div>
-        `;
-        updateInvestmentSummary();
-        return;
-    }
-    
-    container.innerHTML = investments.map(inv => {
-        const profit = inv.currentValue - inv.amount;
-        const profitPercent = ((profit / inv.amount) * 100).toFixed(2);
-        
-        return `
-            <div class="investment-item">
-                <div class="investment-header">
-                    <div>
-                        <h4 class="investment-name">${inv.name}</h4>
-                        <span class="investment-type">${getInvestmentTypeLabel(inv.type)}</span>
-                    </div>
-                    <button class="category-delete" onclick="deleteInvestment(${inv.id})">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-                <div class="investment-details">
-                    <div class="investment-detail">
-                        <span class="investment-detail-label">Investido</span>
-                        <span class="investment-detail-value">R$ ${inv.amount.toFixed(2)}</span>
-                    </div>
-                    <div class="investment-detail">
-                        <span class="investment-detail-label">Valor Atual</span>
-                        <span class="investment-detail-value">R$ ${inv.currentValue.toFixed(2)}</span>
-                    </div>
-                    <div class="investment-detail">
-                        <span class="investment-detail-label">Rendimento</span>
-                        <span class="investment-detail-value ${profit >= 0 ? 'success' : 'danger'}">
-                            ${profit >= 0 ? '+' : ''}R$ ${profit.toFixed(2)} (${profitPercent}%)
-                        </span>
-                    </div>
-                    <div class="investment-detail">
-                        <span class="investment-detail-label">Data</span>
-                        <span class="investment-detail-value">${formatDate(inv.date)}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-    
-    updateInvestmentSummary();
-    updateInvestmentDistributionChart();
-}
-
-function updateInvestmentSummary() {
-    const investments = getUserInvestments();
-    
-    const totalInvested = investments.reduce((sum, inv) => sum + inv.amount, 0);
-    const totalCurrent = investments.reduce((sum, inv) => sum + inv.currentValue, 0);
-    const totalProfit = totalCurrent - totalInvested;
-    const totalReturn = totalInvested > 0 ? ((totalProfit / totalInvested) * 100).toFixed(2) : 0;
-    
-    document.getElementById('total-invested').textContent = `R$ ${totalInvested.toFixed(2)}`;
-    document.getElementById('total-current').textContent = `R$ ${totalCurrent.toFixed(2)}`;
-    document.getElementById('total-profit').textContent = `R$ ${totalProfit.toFixed(2)}`;
-    document.getElementById('total-profit').className = `summary-value ${totalProfit >= 0 ? 'success' : 'danger'}`;
-    document.getElementById('total-return').textContent = `${totalReturn}%`;
-    document.getElementById('total-return').className = `summary-value ${totalProfit >= 0 ? 'success' : 'danger'}`;
-}
-
-function updateInvestmentDistributionChart() {
-    const ctx = document.getElementById('investment-distribution-chart');
-    const investments = getUserInvestments();
-    
-    if (charts.investmentDistribution) {
-        charts.investmentDistribution.destroy();
-    }
-    
-    if (investments.length === 0) {
-        ctx.parentElement.innerHTML = '<p class="empty-state">Sem dados</p>';
-        return;
-    }
-    
-    const grouped = {};
-    investments.forEach(inv => {
-        if (!grouped[inv.type]) grouped[inv.type] = 0;
-        grouped[inv.type] += inv.currentValue;
-    });
-    
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-    
-    charts.investmentDistribution = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: Object.keys(grouped).map(getInvestmentTypeLabel),
-            datasets: [{
-                data: Object.values(grouped),
-                backgroundColor: colors
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: { position: 'bottom' }
-            }
-        }
-    });
-}
-
-function getInvestmentTypeLabel(type) {
-    const labels = {
-        'acoes': 'Ações',
-        'fundos': 'Fundos',
-        'renda-fixa': 'Renda Fixa',
-        'tesouro': 'Tesouro',
-        'cripto': 'Cripto',
-        'imoveis': 'Imóveis',
-        'outros': 'Outros'
-    };
-    return labels[type] || type;
-}
-
-async function deleteInvestment(id) {
-    if (!confirm('Deseja excluir este investimento?')) return;
-    
-    DB.investments = DB.investments.filter(i => i.id !== id);
-    await saveData();
-    updateInvestmentsList();
-}
-
-function getUserInvestments() {
-    return DB.investments.filter(i => i.userId === DB.currentUser.id);
-}
-
-// Cartões de Crédito
-async function handleAddCreditCard(e) {
-    e.preventDefault();
-    
-    const cardName = document.getElementById('card-name').value;
-    const description = document.getElementById('card-description').value;
-    const amount = parseFloat(document.getElementById('card-amount').value);
-    const date = document.getElementById('card-date').value;
-    const installments = parseInt(document.getElementById('card-installments').value);
-    const category = document.getElementById('card-category').value;
-    
-    if (!cardName || !description || !amount || !date) {
-        showAlert('card-error', 'Preencha todos os campos obrigatórios');
-        return;
-    }
-    
-    const installmentValue = amount / installments;
-    
-    const creditCard = {
-        id: Date.now(),
-        userId: DB.currentUser.id,
-        cardName,
-        description,
-        totalAmount: amount,
-        installments,
-        installmentValue,
-        paidInstallments: 0,
-        category,
-        purchaseDate: date,
-        createdAt: new Date().toISOString()
-    };
-    
-    DB.creditCards.push(creditCard);
-    await saveData();
-    
-    showAlert('card-success', 'Compra no cartão adicionada com sucesso!');
-    document.getElementById('credit-card-form').reset();
-    updateCreditCardsList();
-    
-    setTimeout(() => hideAlert('card-success'), 3000);
-}
-
-function updateCreditCardsList() {
-    const container = document.getElementById('credit-cards-list');
-    const cards = getUserCreditCards();
-    
-    if (cards.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-credit-card"></i>
-                <p>Nenhuma compra no cartão registrada</p>
-            </div>
-        `;
-        updateCardsSummary();
-        return;
-    }
-    
-    container.innerHTML = cards.map(card => {
-        const remaining = card.installments - card.paidInstallments;
-        const progress = (card.paidInstallments / card.installments) * 100;
-        
-        return `
-            <div class="card-purchase-item" style="padding: 20px; background: var(--gray-50); border-radius: 12px; margin-bottom: 16px;">
-                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
-                    <div style="flex: 1;">
-                        <h4 style="font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">
-                            ${card.description}
-                        </h4>
-                        <p style="color: var(--text-secondary); font-size: 14px;">
-                            ${card.cardName} • ${card.category}
-                        </p>
-                    </div>
-                    <div style="text-align: right;">
-                        <p style="font-size: 24px; font-weight: 800; color: var(--danger);">
-                            R$ ${card.totalAmount.toFixed(2)}
-                        </p>
-                        <p style="font-size: 12px; color: var(--text-secondary);">
-                            ${card.installments}x de R$ ${card.installmentValue.toFixed(2)}
-                        </p>
-                    </div>
-                </div>
-                
-                <div style="margin-bottom: 12px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px;">
-                        <span style="color: var(--text-secondary);">Progresso</span>
-                        <span style="font-weight: 700; color: var(--primary);">
-                            ${card.paidInstallments}/${card.installments} pagas
-                        </span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill ${progress >= 100 ? 'success' : 'warning'}" 
-                             style="width: ${progress}%"></div>
-                    </div>
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 14px; color: var(--text-secondary);">
-                        ${remaining} parcelas restantes
-                    </span>
-                    <div style="display: flex; gap: 8px;">
-                        <button onclick="payInstallment(${card.id})" 
-                                class="btn btn-primary" 
-                                style="padding: 6px 16px; font-size: 13px;"
-                                ${card.paidInstallments >= card.installments ? 'disabled' : ''}>
-                            <i class="fas fa-check"></i> Pagar Parcela
-                        </button>
-                        <button onclick="deleteCreditCard(${card.id})" 
-                                class="category-delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-    
-    updateCardsSummary();
-    updateNextInvoices();
-}
-
-function updateCardsSummary() {
-    const container = document.getElementById('cards-summary');
-    const cards = getUserCreditCards();
-    
-    const totalDebt = cards.reduce((sum, card) => {
-        const remaining = card.installments - card.paidInstallments;
-        return sum + (card.installmentValue * remaining);
-    }, 0);
-    
-    const thisMonthInvoice = cards.reduce((sum, card) => {
-        if (card.paidInstallments < card.installments) {
-            return sum + card.installmentValue;
-        }
-        return sum;
-    }, 0);
-    
-    container.innerHTML = `
-        <div class="investment-summary">
-            <div class="summary-item">
-                <span class="summary-label">Dívida Total</span>
-                <span class="summary-value danger">R$ ${totalDebt.toFixed(2)}</span>
-            </div>
-            <div class="summary-item">
-                <span class="summary-label">Fatura deste Mês</span>
-                <span class="summary-value">R$ ${thisMonthInvoice.toFixed(2)}</span>
-            </div>
-            <div class="summary-item">
-                <span class="summary-label">Compras Ativas</span>
-                <span class="summary-value">${cards.filter(c => c.paidInstallments < c.installments).length}</span>
-            </div>
-        </div>
-    `;
-}
-
-function updateNextInvoices() {
-    const container = document.getElementById('next-invoices');
-    const cards = getUserCreditCards();
-    
-    // Agrupar por cartão
-    const cardGroups = {};
-    cards.forEach(card => {
-        if (card.paidInstallments < card.installments) {
-            if (!cardGroups[card.cardName]) {
-                cardGroups[card.cardName] = 0;
-            }
-            cardGroups[card.cardName] += card.installmentValue;
-        }
-    });
-    
-    if (Object.keys(cardGroups).length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">Nenhuma fatura pendente</p>';
-        return;
-    }
-    
-    container.innerHTML = Object.entries(cardGroups).map(([cardName, amount]) => `
-        <div style="padding: 16px; background: var(--gray-50); border-radius: 12px; margin-bottom: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-weight: 600; color: var(--text-primary);">${cardName}</span>
-                <span style="font-weight: 800; font-size: 18px; color: var(--danger);">
-                    R$ ${amount.toFixed(2)}
-                </span>
-            </div>
-        </div>
-    `).join('');
-}
-
-async function payInstallment(id) {
-    const card = DB.creditCards.find(c => c.id === id);
-    if (!card || card.paidInstallments >= card.installments) return;
-    
-    card.paidInstallments++;
-    await saveData();
-    updateCreditCardsList();
-}
-
-async function deleteCreditCard(id) {
-    if (!confirm('Deseja excluir esta compra?')) return;
-    
-    DB.creditCards = DB.creditCards.filter(c => c.id !== id);
-    await saveData();
-    updateCreditCardsList();
-}
-
-function getUserCreditCards() {
-    return DB.creditCards.filter(c => c.userId === DB.currentUser.id);
-}
-
-// Contas Mensais
-async function handleAddBill(e) {
-    e.preventDefault();
-    
-    const type = document.getElementById('bill-type').value;
-    const amount = parseFloat(document.getElementById('bill-amount').value);
-    const dueDay = parseInt(document.getElementById('bill-due-day').value);
-    const notes = document.getElementById('bill-notes').value;
-    
-    if (!type || !amount || !dueDay) {
-        showAlert('bill-error', 'Preencha todos os campos obrigatórios');
-        return;
-    }
-    
-    const bill = {
-        id: Date.now(),
-        userId: DB.currentUser.id,
-        type,
-        amount,
-        dueDay,
-        notes,
-        createdAt: new Date().toISOString()
-    };
-    
-    DB.monthlyBills.push(bill);
-    await saveData();
-    
-    showAlert('bill-success', 'Conta mensal adicionada com sucesso!');
-    document.getElementById('bill-form').reset();
-    updateBillsList();
-    
-    setTimeout(() => hideAlert('bill-success'), 3000);
-}
-
-function updateBillsList() {
-    const container = document.getElementById('bills-list');
-    const bills = getUserBills();
-    
-    if (bills.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-file-invoice-dollar"></i>
-                <p>Nenhuma conta mensal cadastrada</p>
-            </div>
-        `;
-        updateBillsSummary();
-        return;
-    }
-    
-    // Ordenar por dia de vencimento
-    bills.sort((a, b) => a.dueDay - b.dueDay);
-    
-    container.innerHTML = bills.map(bill => `
-        <div style="padding: 20px; background: var(--gray-50); border-radius: 12px; margin-bottom: 12px; border-left: 4px solid var(--danger);">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="flex: 1;">
-                    <h4 style="font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">
-                        ${bill.type}
-                    </h4>
-                    <p style="font-size: 14px; color: var(--text-secondary);">
-                        Vence dia ${bill.dueDay} de cada mês
-                    </p>
-                    ${bill.notes ? `<p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">${bill.notes}</p>` : ''}
-                </div>
-                <div style="text-align: right; display: flex; align-items: center; gap: 16px;">
-                    <div>
-                        <p style="font-size: 24px; font-weight: 800; color: var(--danger);">
-                            R$ ${bill.amount.toFixed(2)}
-                        </p>
-                        <p style="font-size: 12px; color: var(--text-secondary);">por mês</p>
-                    </div>
-                    <button onclick="deleteBill(${bill.id})" class="category-delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-    `).join('');
-    
-    updateBillsSummary();
-    updateBillsCalendar();
-}
-
-function updateBillsSummary() {
-    const bills = getUserBills();
-    const total = bills.reduce((sum, bill) => sum + bill.amount, 0);
-    
-    document.getElementById('total-bills').textContent = `R$ ${total.toFixed(2)}`;
-    document.getElementById('bills-count').textContent = bills.length;
-}
-
-function updateBillsCalendar() {
-    const container = document.getElementById('bills-calendar');
-    const bills = getUserBills();
-    const now = new Date();
-    const currentDay = now.getDate();
-    
-    if (bills.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">Nenhuma conta cadastrada</p>';
-        return;
-    }
-    
-    // Separar contas vencidas, próximas e futuras
-    const overdue = bills.filter(b => b.dueDay < currentDay);
-    const upcoming = bills.filter(b => b.dueDay >= currentDay && b.dueDay <= currentDay + 7);
-    const later = bills.filter(b => b.dueDay > currentDay + 7);
-    
-    let html = '';
-    
-    if (overdue.length > 0) {
-        html += '<div style="margin-bottom: 20px;"><h4 style="color: var(--danger); margin-bottom: 12px;">⚠️ Vencidas este Mês</h4>';
-        html += overdue.map(b => `
-            <div style="padding: 12px; background: #fee2e2; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between;">
-                <span style="font-weight: 600; color: var(--danger);">${b.type}</span>
-                <span style="font-weight: 700; color: var(--danger);">Dia ${b.dueDay} - R$ ${b.amount.toFixed(2)}</span>
-            </div>
-        `).join('');
-        html += '</div>';
-    }
-    
-    if (upcoming.length > 0) {
-        html += '<div style="margin-bottom: 20px;"><h4 style="color: var(--warning); margin-bottom: 12px;">📅 Próximos 7 Dias</h4>';
-        html += upcoming.map(b => `
-            <div style="padding: 12px; background: #fef3c7; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between;">
-                <span style="font-weight: 600; color: var(--warning);">${b.type}</span>
-                <span style="font-weight: 700; color: var(--warning);">Dia ${b.dueDay} - R$ ${b.amount.toFixed(2)}</span>
-            </div>
-        `).join('');
-        html += '</div>';
-    }
-    
-    if (later.length > 0) {
-        html += '<div><h4 style="color: var(--text-secondary); margin-bottom: 12px;">📆 Mais Tarde</h4>';
-        html += later.map(b => `
-            <div style="padding: 12px; background: var(--gray-50); border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between;">
-                <span style="font-weight: 600; color: var(--text-primary);">${b.type}</span>
-                <span style="font-weight: 700; color: var(--text-primary);">Dia ${b.dueDay} - R$ ${b.amount.toFixed(2)}</span>
-            </div>
-        `).join('');
-        html += '</div>';
-    }
-    
-    container.innerHTML = html;
-}
-
-async function deleteBill(id) {
-    if (!confirm('Deseja excluir esta conta?')) return;
-    
-    DB.monthlyBills = DB.monthlyBills.filter(b => b.id !== id);
-    await saveData();
-    updateBillsList();
-}
-
-function getUserBills() {
-    return DB.monthlyBills.filter(b => b.userId === DB.currentUser.id);
-}
-
-// Atualizar navegação
-async function handleInviteFamily() {
-    const email = document.getElementById('family-email').value.trim();
-    const permission = document.getElementById('family-permission').value;
-    
-    if (!email) {
-        showAlert('family-error', 'Digite um email');
-        return;
-    }
-    
-    const member = {
-        id: Date.now(),
-        userId: DB.currentUser.id,
-        email,
-        permission,
-        status: 'pending',
-        invitedAt: new Date().toISOString()
-    };
-    
-    DB.familyMembers.push(member);
-    await saveData();
-    
-    showAlert('family-success', 'Convite enviado com sucesso!');
-    document.getElementById('family-email').value = '';
-    updateFamilyMembersList();
-    
-    setTimeout(() => hideAlert('family-success'), 3000);
-}
-
-function updateFamilyMembersList() {
-    const container = document.getElementById('family-members-list');
-    const members = DB.familyMembers.filter(m => m.userId === DB.currentUser.id);
-    
-    if (members.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-users"></i>
-                <p>Nenhum membro adicionado ainda</p>
-            </div>
-        `;
-        return;
-    }
-    
-    container.innerHTML = members.map(member => {
-        const initial = member.email.charAt(0).toUpperCase();
-        return `
-            <div class="family-member-item">
-                <div class="family-member-info">
-                    <div class="family-avatar">${initial}</div>
-                    <div class="family-member-details">
-                        <h4>${member.email}</h4>
-                        <p>Status: ${member.status === 'pending' ? 'Pendente' : 'Ativo'}</p>
-                    </div>
-                </div>
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <span class="family-permission-badge ${member.permission}">
-                        ${member.permission === 'admin' ? 'Admin' : member.permission === 'edit' ? 'Editar' : 'Visualizar'}
-                    </span>
-                    <button class="category-delete" onclick="removeFamilyMember(${member.id})">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-async function removeFamilyMember(id) {
-    if (!confirm('Remover este membro?')) return;
-    
-    DB.familyMembers = DB.familyMembers.filter(m => m.id !== id);
-    await saveData();
-    updateFamilyMembersList();
-}
-
-// Atualizar navegação
-function navigateTo(page) {
-    document.querySelectorAll('.content-page').forEach(p => p.classList.add('hidden'));
-    document.getElementById(`${page}-page`).classList.remove('hidden');
     
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
@@ -2509,20 +483,224 @@ function navigateTo(page) {
         case 'settings':
             updateCategoriesList();
             loadCategories();
-            const lastSync = localStorage.getItem('last-sync');
-            if (lastSync) {
-                document.getElementById('last-sync').textContent = `Última sincronização: ${lastSync}`;
-            }
             break;
     }
 }
 
-// ===========================================
-// FUNÇÕES ADICIONAIS PARA O FINCONTROL PRO
-// Adicione estas funções no app.js
-// ===========================================
+// Continuação no próximo bloco...
 
-// ========== TOGGLE DE SENHA ==========
+// =============================================
+// FINCONTROL PRO v3.5 - PARTE 2
+// COLE ESTE CÓDIGO NO FINAL DO app.js
+// =============================================
+
+// ========== TRANSAÇÕES ==========
+async function handleAddTransaction(e) {
+    e.preventDefault();
+    
+    const type = document.getElementById('transaction-type').value;
+    const amount = parseFloat(document.getElementById('transaction-amount').value);
+    const category = document.getElementById('transaction-category').value;
+    const date = document.getElementById('transaction-date').value;
+    const description = document.getElementById('transaction-description').value;
+
+    if (!type || !amount || !category || !date) {
+        showAlert('transaction-error', 'Preencha todos os campos obrigatórios');
+        return;
+    }
+
+    try {
+        const userId = window.auth.currentUser.uid;
+        
+        // Adicionar ao Firestore
+        const docRef = await window.db.collection('users').doc(userId)
+            .collection('transactions').add({
+                type,
+                amount,
+                category,
+                date,
+                description,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        
+        // Adicionar ao DB local
+        DB.transactions.push({
+            id: docRef.id,
+            userId,
+            type,
+            amount,
+            category,
+            date,
+            description
+        });
+        
+        showAlert('transaction-success', 'Transação adicionada com sucesso!');
+        document.getElementById('transaction-form').reset();
+        updateTransactionsList();
+        updateDashboard();
+        
+        setTimeout(() => hideAlert('transaction-success'), 3000);
+        
+    } catch (error) {
+        console.error('Erro ao adicionar transação:', error);
+        showAlert('transaction-error', 'Erro ao salvar transação');
+    }
+}
+
+function updateTransactionsList() {
+    const container = document.getElementById('transactions-list');
+    if (!container) return;
+    
+    const transactions = DB.transactions;
+
+    if (transactions.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-file-invoice"></i>
+                <p>Nenhuma transação registrada</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = transactions.slice().reverse().map(t => `
+        <div class="transaction-item">
+            <div class="transaction-info">
+                <div class="transaction-icon ${t.type}">
+                    <i class="fas fa-arrow-${t.type === 'income' ? 'up' : 'down'}"></i>
+                </div>
+                <div class="transaction-details">
+                    <h4>${t.category}</h4>
+                    <p>${t.description}</p>
+                    <small>${formatDate(t.date)}</small>
+                </div>
+            </div>
+            <div class="transaction-amount ${t.type}">
+                ${t.type === 'income' ? '+' : '-'} R$ ${t.amount.toFixed(2)}
+            </div>
+        </div>
+    `).join('');
+}
+
+// ========== DASHBOARD ==========
+function updateDashboard() {
+    const totals = calculateTotals();
+    
+    document.getElementById('total-income').textContent = `R$ ${totals.income.toFixed(2)}`;
+    document.getElementById('total-expense').textContent = `R$ ${totals.expense.toFixed(2)}`;
+    document.getElementById('total-balance').textContent = `R$ ${totals.balance.toFixed(2)}`;
+    
+    const total = totals.income + totals.expense;
+    document.getElementById('income-percentage').textContent = 
+        `${((totals.income / total) * 100 || 0).toFixed(1)}% do total`;
+    document.getElementById('expense-percentage').textContent = 
+        `${((totals.expense / total) * 100 || 0).toFixed(1)}% do total`;
+    document.getElementById('balance-status').textContent = 
+        totals.balance >= 0 ? 'Situação positiva' : 'Atenção necessária';
+    
+    const balanceCard = document.querySelector('.balance-card');
+    if (balanceCard) {
+        if (totals.balance < 0) {
+            balanceCard.classList.add('negative');
+        } else {
+            balanceCard.classList.remove('negative');
+        }
+    }
+    
+    updateRecentTransactions();
+    updateGoalsPreview();
+    updateEvolutionChart();
+}
+
+function updateRecentTransactions() {
+    const container = document.getElementById('recent-transactions');
+    if (!container) return;
+    
+    const transactions = getFilteredTransactions().slice(-6).reverse();
+    
+    if (transactions.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state" style="padding: 32px 0;">
+                <i class="fas fa-file-invoice" style="font-size: 48px;"></i>
+                <p style="font-size: 14px;">Nenhuma transação registrada</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = transactions.map(t => `
+        <div class="transaction-item" style="margin-bottom: 8px;">
+            <div class="transaction-info">
+                <div class="transaction-icon ${t.type}">
+                    <i class="fas fa-arrow-${t.type === 'income' ? 'up' : 'down'}"></i>
+                </div>
+                <div class="transaction-details">
+                    <h4 style="font-size: 14px;">${t.category}</h4>
+                    <small>${formatDate(t.date)}</small>
+                </div>
+            </div>
+            <div class="transaction-amount ${t.type}" style="font-size: 16px;">
+                ${t.type === 'income' ? '+' : '-'} R$ ${t.amount.toFixed(2)}
+            </div>
+        </div>
+    `).join('');
+}
+
+function calculateTotals() {
+    const filtered = getFilteredTransactions();
+    const income = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const expense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    return { income, expense, balance: income - expense };
+}
+
+function getFilteredTransactions() {
+    const transactions = DB.transactions;
+    const now = new Date();
+    let startDate;
+    
+    switch(currentFilter) {
+        case 'week':
+            startDate = new Date(now.setDate(now.getDate() - 7));
+            break;
+        case 'month':
+            startDate = new Date(now.setMonth(now.getMonth() - 1));
+            break;
+        case 'year':
+            startDate = new Date(now.setFullYear(now.getFullYear() - 1));
+            break;
+        default:
+            return transactions;
+    }
+    
+    return transactions.filter(t => new Date(t.date) >= startDate);
+}
+
+// ========== FUNÇÕES AUXILIARES ==========
+function showAlert(id, message) {
+    const alert = document.getElementById(id);
+    if (alert) {
+        alert.textContent = message;
+        alert.classList.remove('hidden');
+    }
+}
+
+function hideAlert(id) {
+    const alert = document.getElementById(id);
+    if (alert) {
+        alert.classList.add('hidden');
+    }
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR', { 
+        day: '2-digit', 
+        month: 'long', 
+        year: 'numeric' 
+    });
+}
+
+// ========== SENHA ==========
 function togglePassword(inputId, button) {
     const input = document.getElementById(inputId);
     const icon = button.querySelector('i');
@@ -2536,17 +714,6 @@ function togglePassword(inputId, button) {
         icon.classList.remove('fa-eye-slash');
         icon.classList.add('fa-eye');
     }
-}
-
-// ========== VALIDAÇÃO DE SENHA FORTE ==========
-function validatePasswordStrength(password) {
-    if (password.length < 8) return false;
-    if (!/[A-Z]/.test(password)) return false;
-    if (!/[a-z]/.test(password)) return false;
-    if (!/[0-9]/.test(password)) return false;
-    if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) return false;
-    
-    return true;
 }
 
 function checkPasswordStrength(password) {
@@ -2579,27 +746,7 @@ function checkPasswordStrength(password) {
     return strength;
 }
 
-// Event listener para mostrar força da senha
-document.getElementById('register-password')?.addEventListener('input', (e) => {
-    const password = e.target.value;
-    const strengthDiv = document.getElementById('password-strength');
-    const strengthFill = document.getElementById('strength-bar-fill');
-    const strengthText = document.getElementById('strength-text');
-    
-    if (password.length === 0) {
-        strengthDiv.classList.add('hidden');
-        return;
-    }
-    
-    strengthDiv.classList.remove('hidden');
-    const strength = checkPasswordStrength(password);
-    
-    strengthFill.className = `strength-bar-fill ${strength.class}`;
-    strengthText.className = `strength-text ${strength.class}`;
-    strengthText.textContent = strength.text;
-});
-
-// ========== MODAIS DE TERMOS E PRIVACIDADE ==========
+// ========== TERMOS E PRIVACIDADE ==========
 function showTerms() {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -2613,19 +760,13 @@ function showTerms() {
                 <p>Ao usar o FinControl Pro, você concorda com estes termos.</p>
                 
                 <h3>2. Uso do Serviço</h3>
-                <p>O FinControl Pro é uma ferramenta de gestão financeira pessoal. Você é responsável pela precisão dos dados inseridos.</p>
+                <p>O FinControl Pro é uma ferramenta de gestão financeira pessoal.</p>
                 
-                <h3>3. Privacidade dos Dados</h3>
-                <p>Seus dados financeiros são privados e criptografados. Não compartilhamos informações com terceiros.</p>
+                <h3>3. Privacidade</h3>
+                <p>Seus dados são privados e criptografados.</p>
                 
-                <h3>4. Responsabilidades</h3>
-                <p>O FinControl Pro é uma ferramenta educacional. Para decisões financeiras importantes, consulte um profissional.</p>
-                
-                <h3>5. Atualizações</h3>
-                <p>Podemos atualizar estes termos. Alterações significativas serão notificadas.</p>
-                
-                <h3>6. Contato</h3>
-                <p>Para dúvidas: felipe.andrade.dev@email.com</p>
+                <h3>4. Contato</h3>
+                <p>felipe.andrade.dev@email.com</p>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-primary" onclick="this.closest('.modal-overlay').remove()">
@@ -2652,39 +793,13 @@ function showPrivacy() {
             </div>
             <div class="modal-body">
                 <h3>1. Coleta de Dados</h3>
-                <p>Coletamos apenas: nome, email e dados financeiros que você insere voluntariamente.</p>
+                <p>Coletamos: nome, email e dados financeiros.</p>
                 
                 <h3>2. Uso dos Dados</h3>
-                <p>Seus dados são usados exclusivamente para:</p>
-                <ul>
-                    <li>Fornecer funcionalidades do app</li>
-                    <li>Gerar relatórios personalizados</li>
-                    <li>Melhorar sua experiência</li>
-                </ul>
+                <p>Para fornecer funcionalidades do app.</p>
                 
-                <h3>3. Armazenamento</h3>
-                <p>Dados armazenados localmente no seu dispositivo e/ou Firebase (se configurado).</p>
-                
-                <h3>4. Compartilhamento</h3>
-                <p>NUNCA compartilhamos seus dados com terceiros, exceto:</p>
-                <ul>
-                    <li>Se você usar a função de compartilhamento familiar (controlado por você)</li>
-                    <li>Se legalmente obrigado</li>
-                </ul>
-                
-                <h3>5. Segurança</h3>
-                <p>Utilizamos criptografia e melhores práticas de segurança.</p>
-                
-                <h3>6. Seus Direitos</h3>
-                <p>Você pode:</p>
-                <ul>
-                    <li>Exportar todos seus dados</li>
-                    <li>Deletar sua conta e dados</li>
-                    <li>Solicitar correções</li>
-                </ul>
-                
-                <h3>7. Cookies</h3>
-                <p>Usamos localStorage para manter você logado. Não usamos cookies de rastreamento.</p>
+                <h3>3. Segurança</h3>
+                <p>Dados criptografados e protegidos.</p>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-primary" onclick="this.closest('.modal-overlay').remove()">
@@ -2701,271 +816,91 @@ function showPrivacy() {
     document.body.appendChild(modal);
 }
 
-// ========== ALERTAS PERSONALIZADOS ==========
-function showCustomAlert(title, message, type = 'info', duration = 5000) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `custom-alert ${type}`;
+// ========== TEMA ==========
+function loadTheme() {
+    const savedTheme = localStorage.getItem('fincontrol-theme') || 'light';
+    applyTheme(savedTheme);
+}
+
+function applyTheme(theme) {
+    const body = document.body;
+    const themeIcon = document.querySelector('#theme-toggle i');
     
-    const icons = {
-        success: 'fa-check-circle',
-        error: 'fa-exclamation-circle',
-        warning: 'fa-exclamation-triangle',
-        info: 'fa-info-circle'
-    };
+    body.classList.remove('light-theme', 'dark-theme');
     
-    alertDiv.innerHTML = `
-        <div class="custom-alert-content">
-            <i class="fas ${icons[type]}"></i>
-            <div class="custom-alert-text">
-                <strong>${title}</strong>
-                <p>${message}</p>
-            </div>
-            <button class="custom-alert-close" onclick="this.closest('.custom-alert').remove()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-    `;
+    document.querySelectorAll('.theme-option').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.theme === theme) {
+            btn.classList.add('active');
+        }
+    });
     
-    document.body.appendChild(alertDiv);
-    
-    setTimeout(() => {
-        alertDiv.classList.add('show');
-    }, 10);
-    
-    if (duration > 0) {
-        setTimeout(() => {
-            alertDiv.classList.remove('show');
-            setTimeout(() => alertDiv.remove(), 300);
-        }, duration);
-    }
-}
-
-// CSS para alertas personalizados (adicionar no styles.css):
-/*
-.custom-alert {
-    position: fixed;
-    top: 80px;
-    right: 20px;
-    min-width: 320px;
-    max-width: 420px;
-    background: var(--bg-primary);
-    border-radius: 16px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-    padding: 20px;
-    z-index: 10000;
-    transform: translateX(450px);
-    transition: transform 0.3s ease;
-    border-left: 4px solid;
-}
-
-.custom-alert.show {
-    transform: translateX(0);
-}
-
-.custom-alert.success {
-    border-left-color: #10b981;
-}
-
-.custom-alert.error {
-    border-left-color: #ef4444;
-}
-
-.custom-alert.warning {
-    border-left-color: #f59e0b;
-}
-
-.custom-alert.info {
-    border-left-color: #3b82f6;
-}
-
-.custom-alert-content {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-}
-
-.custom-alert-content > i {
-    font-size: 24px;
-    margin-top: 2px;
-}
-
-.custom-alert.success i {
-    color: #10b981;
-}
-
-.custom-alert.error i {
-    color: #ef4444;
-}
-
-.custom-alert.warning i {
-    color: #f59e0b;
-}
-
-.custom-alert.info i {
-    color: #3b82f6;
-}
-
-.custom-alert-text {
-    flex: 1;
-}
-
-.custom-alert-text strong {
-    display: block;
-    color: var(--text-primary);
-    font-size: 16px;
-    margin-bottom: 4px;
-}
-
-.custom-alert-text p {
-    color: var(--text-secondary);
-    font-size: 14px;
-    margin: 0;
-}
-
-.custom-alert-close {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-    padding: 4px;
-    transition: color 0.3s;
-}
-
-.custom-alert-close:hover {
-    color: var(--text-primary);
-}
-*/
-
-// ========== CONTAS MENSAIS MELHORADAS ==========
-// Atualizar para ter registro mês a mês
-
-async function handleAddBillImproved(e) {
-    e.preventDefault();
-    
-    const type = document.getElementById('bill-type').value;
-    const dueDay = parseInt(document.getElementById('bill-due-day').value);
-    const notes = document.getElementById('bill-notes').value;
-    
-    if (!type || !dueDay) {
-        showAlert('bill-error', 'Preencha todos os campos obrigatórios');
-        return;
-    }
-    
-    // Criar conta mensal que será registrada todo mês
-    const bill = {
-        id: Date.now(),
-        userId: DB.currentUser.id,
-        type,
-        dueDay,
-        notes,
-        payments: [], // Array para registrar pagamentos mês a mês
-        createdAt: new Date().toISOString()
-    };
-    
-    DB.monthlyBills.push(bill);
-    await saveData();
-    
-    showCustomAlert(
-        'Conta Adicionada!',
-        `${type} foi adicionada às suas contas mensais`,
-        'success'
-    );
-    
-    document.getElementById('bill-form').reset();
-    updateBillsList();
-}
-
-// Função para registrar pagamento mensal
-async function payMonthlyBill(billId, month, year, amount) {
-    const bill = DB.monthlyBills.find(b => b.id === billId);
-    if (!bill) return;
-    
-    const payment = {
-        month,
-        year,
-        amount: parseFloat(amount),
-        paidAt: new Date().toISOString(),
-        status: 'paid'
-    };
-    
-    if (!bill.payments) bill.payments = [];
-    
-    // Verificar se já foi pago este mês
-    const existingPayment = bill.payments.find(p => p.month === month && p.year === year);
-    if (existingPayment) {
-        existingPayment.amount = payment.amount;
-        existingPayment.paidAt = payment.paidAt;
+    if (theme === 'auto') {
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        body.classList.add(isDark ? 'dark-theme' : 'light-theme');
+        if (themeIcon) {
+            themeIcon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        }
     } else {
-        bill.payments.push(payment);
+        body.classList.add(`${theme}-theme`);
+        if (themeIcon) {
+            themeIcon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        }
     }
     
-    await saveData();
-    updateBillsList();
-    
-    showCustomAlert(
-        'Pagamento Registrado!',
-        `${bill.type} de ${month}/${year} marcada como paga`,
-        'success'
-    );
+    localStorage.setItem('fincontrol-theme', theme);
 }
 
-// ========== PWA INSTALL PROMPT ==========
-let deferredPrompt;
-
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    
-    // Mostrar banner personalizado
-    showInstallBanner();
-});
-
-function showInstallBanner() {
-    const banner = document.createElement('div');
-    banner.id = 'install-banner';
-    banner.className = 'install-banner';
-    banner.innerHTML = `
-        <div class="install-banner-content">
-            <i class="fas fa-mobile-alt"></i>
-            <div>
-                <strong>Instalar FinControl Pro</strong>
-                <p>Acesse mais rápido instalando o app</p>
-            </div>
-            <div class="install-banner-actions">
-                <button onclick="installPWA()" class="btn btn-primary">Instalar</button>
-                <button onclick="dismissInstallBanner()" class="btn">Depois</button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(banner);
-    
-    setTimeout(() => banner.classList.add('show'), 100);
+function setTheme(theme) {
+    applyTheme(theme);
 }
 
-async function installPWA() {
-    if (!deferredPrompt) return;
-    
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-        showCustomAlert(
-            'App Instalado!',
-            'FinControl Pro foi instalado com sucesso',
-            'success'
-        );
-    }
-    
-    deferredPrompt = null;
-    dismissInstallBanner();
+function toggleTheme() {
+    const currentTheme = localStorage.getItem('fincontrol-theme') || 'light';
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    applyTheme(newTheme);
 }
 
-function dismissInstallBanner() {
-    const banner = document.getElementById('install-banner');
-    if (banner) {
-        banner.classList.remove('show');
-        setTimeout(() => banner.remove(), 300);
-    }
+// ========== CATEGORIAS ==========
+function loadCategories() {
+    const select = document.getElementById('transaction-category');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">Selecione uma categoria</option>';
+    
+    DB.categories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.name;
+        option.textContent = cat.name;
+        select.appendChild(option);
+    });
 }
 
+// ========== STUBS DAS OUTRAS FUNÇÕES ==========
+// Adicione aqui as funções restantes conforme necessário
+
+function handleAddBudget(e) { e.preventDefault(); console.log('Budget - implementar'); }
+function handleAddGoal(e) { e.preventDefault(); console.log('Goal - implementar'); }
+function handleAddInvestment(e) { e.preventDefault(); console.log('Investment - implementar'); }
+function handleAddCreditCard(e) { e.preventDefault(); console.log('Card - implementar'); }
+function handleAddBill(e) { e.preventDefault(); console.log('Bill - implementar'); }
+function handleInviteFamily() { console.log('Family - implementar'); }
+function handleAddCategory() { console.log('Category - implementar'); }
+function exportToPDF() { console.log('PDF - implementar'); }
+function exportToExcel() { console.log('Excel - implementar'); }
+function handleBackup() { console.log('Backup - implementar'); }
+function handleRestore() { console.log('Restore - implementar'); }
+function handleClearData() { console.log('Clear - implementar'); }
+function handleInstallPWA() { console.log('PWA - implementar'); }
+function updateBudgetsList() { console.log('Budgets list'); }
+function updateGoalsList() { console.log('Goals list'); }
+function updateGoalsPreview() { console.log('Goals preview'); }
+function updateInvestmentsList() { console.log('Investments list'); }
+function updateCreditCardsList() { console.log('Cards list'); }
+function updateBillsList() { console.log('Bills list'); }
+function updateFamilyMembersList() { console.log('Family list'); }
+function updateCategoriesList() { console.log('Categories list'); }
+function updateReports() { console.log('Reports'); }
+function updateEvolutionChart() { console.log('Chart'); }
+
+console.log('✅ FinControl Pro carregado!');
