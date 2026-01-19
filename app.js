@@ -420,6 +420,169 @@ function showMainApp() {
         document.getElementById('user-name').textContent = DB.currentUser.name;
     }
     navigateTo('dashboard');
+    
+    // Mostrar popup de doação após 2 segundos
+    setTimeout(() => {
+        showDonationPopup();
+    }, 2000);
+}
+
+// ========== POPUP DE DOAÇÃO ==========
+function showDonationPopup() {
+    // Verificar se o usuário desabilitou permanentemente
+    const disabledUntil = localStorage.getItem('donation-popup-disabled-until');
+    if (disabledUntil) {
+        const disabledDate = new Date(disabledUntil);
+        if (new Date() < disabledDate) {
+            return; // Não mostrar até a data especificada
+        }
+    }
+    
+    // Verificar se o usuário já viu o popup hoje
+    const lastShown = localStorage.getItem('donation-popup-shown');
+    const today = new Date().toDateString();
+    
+    if (lastShown === today) {
+        return; // Não mostrar novamente hoje
+    }
+    
+    // Criar overlay do popup
+    const overlay = document.createElement('div');
+    overlay.id = 'donation-popup-overlay';
+    overlay.className = 'donation-popup-overlay';
+    overlay.innerHTML = `
+        <div class="donation-popup">
+            <button class="donation-close-btn" onclick="closeDonationPopup()">
+                <i class="fas fa-times"></i>
+            </button>
+            
+            <div class="donation-popup-header">
+                <div class="donation-icon">
+                    <i class="fas fa-heart"></i>
+                </div>
+                <h2>Olá, ${DB.currentUser.name}! 👋</h2>
+                <p>Bem-vindo ao FinControl Pro</p>
+            </div>
+            
+            <div class="donation-popup-body">
+                <div class="donation-message">
+                    <i class="fas fa-coffee" style="font-size: 48px; color: var(--primary); margin-bottom: 16px;"></i>
+                    <h3>Gostando do FinControl Pro?</h3>
+                    <p>
+                        Este projeto é <strong>gratuito e open source</strong>! 
+                        Se está te ajudando a organizar suas finanças, 
+                        considere fazer uma contribuição. ☕
+                    </p>
+                    <p style="margin-top: 12px; font-size: 14px; color: var(--text-secondary);">
+                        Seu apoio ajuda a manter o desenvolvimento e trazer novas funcionalidades!
+                    </p>
+                </div>
+                
+                <div class="donation-pix-quick">
+                    <h4><i class="fas fa-qrcode"></i> PIX Rápido</h4>
+                    <div class="pix-key-quick">
+                        <input type="text" id="popup-pix-key" value="00020126360014BR.GOV.BCB.PIX0114+55169921898625204000053039865802BR5901N6001C62180514PGTOFINCONTROL6304A14C" readonly>
+                        <button onclick="copyPixFromPopup()" class="btn-copy-quick">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <p id="popup-copy-feedback" class="popup-copy-feedback hidden">
+                        <i class="fas fa-check-circle"></i> Copiado!
+                    </p>
+                    
+                    <div class="donation-values-quick">
+                        <button class="value-btn-quick" onclick="selectValue(5)">R$ 5</button>
+                        <button class="value-btn-quick" onclick="selectValue(10)">R$ 10</button>
+                        <button class="value-btn-quick" onclick="selectValue(20)">R$ 20</button>
+                        <button class="value-btn-quick" onclick="selectValue(50)">R$ 50</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="donation-popup-footer">
+                <button class="btn-popup-secondary" onclick="closeDonationPopup()">
+                    Agora Não
+                </button>
+                <button class="btn-popup-primary" onclick="goToDonation()">
+                    <i class="fas fa-heart"></i> Quero Contribuir
+                </button>
+            </div>
+            
+            <div class="donation-popup-note">
+                <label>
+                    <input type="checkbox" id="dont-show-again" onchange="handleDontShowAgain()">
+                    <span>Não mostrar novamente</span>
+                </label>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    
+    // Animar entrada
+    setTimeout(() => {
+        overlay.classList.add('active');
+    }, 10);
+    
+    // Salvar que foi mostrado hoje
+    localStorage.setItem('donation-popup-shown', today);
+}
+
+function closeDonationPopup() {
+    const overlay = document.getElementById('donation-popup-overlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+        setTimeout(() => {
+            overlay.remove();
+        }, 300);
+    }
+}
+
+function copyPixFromPopup() {
+    const pixKey = document.getElementById('popup-pix-key');
+    const feedback = document.getElementById('popup-copy-feedback');
+    
+    pixKey.select();
+    pixKey.setSelectionRange(0, 99999);
+    
+    navigator.clipboard.writeText(pixKey.value).then(() => {
+        feedback.classList.remove('hidden');
+        setTimeout(() => {
+            feedback.classList.add('hidden');
+        }, 3000);
+    });
+}
+
+function selectValue(value) {
+    const pixKey = document.getElementById('popup-pix-key');
+    alert(`Valor sugerido: R$ ${value.toFixed(2)}\n\nChave PIX copiada! Cole no seu app de pagamentos.`);
+    copyPixFromPopup();
+}
+
+function goToDonation() {
+    closeDonationPopup();
+    navigateTo('settings');
+    
+    // Scroll para a seção de contribuição
+    setTimeout(() => {
+        const contributionSection = document.querySelector('.contribution-section');
+        if (contributionSection) {
+            contributionSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            contributionSection.style.animation = 'pulse 2s ease';
+        }
+    }, 500);
+}
+
+function handleDontShowAgain() {
+    const checkbox = document.getElementById('dont-show-again');
+    if (checkbox.checked) {
+        // Salvar preferência por 30 dias
+        const futureDate = new Date();
+        futureDate.setDate(futureDate.getDate() + 30);
+        localStorage.setItem('donation-popup-disabled-until', futureDate.toISOString());
+    } else {
+        localStorage.removeItem('donation-popup-disabled-until');
+    }
 }
 
 function navigateTo(page) {
