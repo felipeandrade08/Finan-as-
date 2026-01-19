@@ -1561,8 +1561,20 @@ body.dark-theme {
 .brand-name {
     font-size: 20px;
     font-weight: 800;
-    color: var(--text-primary);
+    color: white !important;
     letter-spacing: -0.5px;
+}
+
+.nav-brand .brand-name {
+    color: white !important;
+}
+
+.footer-brand .brand-name {
+    color: var(--text-primary) !important;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .brand-name-web {
@@ -1624,6 +1636,19 @@ body.dark-theme {
     border-bottom: none;
 }
 
+.nav-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.nav-brand .brand-name {
+    color: white !important;
+}
+
 .nav-item {
     color: rgba(255, 255, 255, 0.9);
 }
@@ -1645,6 +1670,14 @@ body.dark-theme {
 
 .nav-item.logout-btn:hover {
     background: rgba(239, 68, 68, 0.1);
+}
+
+/* Garantir que o texto permaneça branco */
+.nav-brand .brand-name,
+.nav-brand .brand-name-web,
+.nav-brand .brand-name-mobile {
+    color: white !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* ========== AUTH PAGES COM CORES DA LOGO ========== */
