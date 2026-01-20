@@ -561,7 +561,7 @@ function showDonationPopup() {
                         <i class="fas fa-qrcode"></i> PIX Rápido
                     </h4>
                     <div class="pix-key-quick" style="display: flex; gap: 0; margin-bottom: 12px;">
-                        <input type="text" id="popup-pix-key" value="felipe.pessoal2026@gmail.com" readonly style="
+                        <input type="text" id="popup-pix-key" value="felipe.pessoall2026@gmail.com" readonly style="
                             flex: 1;
                             padding: 14px 16px;
                             border: 2px solid #e5e7eb;
