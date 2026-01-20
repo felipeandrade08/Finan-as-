@@ -292,6 +292,9 @@ async function handleLogin(e) {
 async function handleLogout() {
     if (confirm('Deseja realmente sair?')) {
         try {
+            // Parar popup periódico
+            stopPeriodicDonationPopup();
+            
             await window.auth.signOut();
             DB.currentUser = null;
             DB.transactions = [];
@@ -421,10 +424,13 @@ function showMainApp() {
     }
     navigateTo('dashboard');
     
-    // Mostrar popup de doação após 2 segundos
+    // Iniciar sistema de popup periódico
+    startPeriodicDonationPopup();
+    
+    // Mostrar popup de doação após 3 segundos do login
     setTimeout(() => {
         showDonationPopup();
-    }, 2000);
+    }, 3000);
 }
 
 // ========== POPUP DE DOAÇÃO ==========
@@ -438,18 +444,22 @@ function showDonationPopup() {
         }
     }
     
-    // Verificar se o usuário já viu o popup hoje
-    const lastShown = localStorage.getItem('donation-popup-shown');
-    const today = new Date().toDateString();
-    
-    if (lastShown === today) {
-        return; // Não mostrar novamente hoje
+    // Verificar se já existe um popup aberto
+    if (document.getElementById('donation-popup-overlay')) {
+        return;
     }
     
-    // Criar overlay do popup
+    // Criar overlay do popup DIRETAMENTE NO BODY
     const overlay = document.createElement('div');
     overlay.id = 'donation-popup-overlay';
     overlay.className = 'donation-popup-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.zIndex = '999999';
+    
     overlay.innerHTML = `
         <div class="donation-popup">
             <button class="donation-close-btn" onclick="closeDonationPopup()">
@@ -481,7 +491,7 @@ function showDonationPopup() {
                 <div class="donation-pix-quick">
                     <h4><i class="fas fa-qrcode"></i> PIX Rápido</h4>
                     <div class="pix-key-quick">
-                        <input type="text" id="popup-pix-key" value="00020126360014BR.GOV.BCB.PIX0114+55169921898625204000053039865802BR5901N6001C62180514PGTOFINCONTROL6304A14C" readonly>
+                        <input type="text" id="popup-pix-key" value="16992189862" readonly>
                         <button onclick="copyPixFromPopup()" class="btn-copy-quick">
                             <i class="fas fa-copy"></i>
                         </button>
@@ -517,15 +527,16 @@ function showDonationPopup() {
         </div>
     `;
     
+    // IMPORTANTE: Adicionar ao BODY, não ao main-app
     document.body.appendChild(overlay);
     
     // Animar entrada
     setTimeout(() => {
         overlay.classList.add('active');
-    }, 10);
+    }, 100);
     
-    // Salvar que foi mostrado hoje
-    localStorage.setItem('donation-popup-shown', today);
+    // Salvar timestamp da última exibição
+    localStorage.setItem('donation-popup-last-shown', new Date().toISOString());
 }
 
 function closeDonationPopup() {
@@ -542,6 +553,8 @@ function copyPixFromPopup() {
     const pixKey = document.getElementById('popup-pix-key');
     const feedback = document.getElementById('popup-copy-feedback');
     
+    if (!pixKey || !feedback) return;
+    
     pixKey.select();
     pixKey.setSelectionRange(0, 99999);
     
@@ -550,12 +563,17 @@ function copyPixFromPopup() {
         setTimeout(() => {
             feedback.classList.add('hidden');
         }, 3000);
+    }).catch(err => {
+        console.error('Erro ao copiar:', err);
+        alert('Chave PIX copiada: ' + pixKey.value);
     });
 }
 
 function selectValue(value) {
     const pixKey = document.getElementById('popup-pix-key');
-    alert(`Valor sugerido: R$ ${value.toFixed(2)}\n\nChave PIX copiada! Cole no seu app de pagamentos.`);
+    if (!pixKey) return;
+    
+    alert(`💰 Valor sugerido: R$ ${value.toFixed(2)}\n\n📋 Chave PIX copiada!\nCole no seu app de pagamentos.`);
     copyPixFromPopup();
 }
 
@@ -575,13 +593,65 @@ function goToDonation() {
 
 function handleDontShowAgain() {
     const checkbox = document.getElementById('dont-show-again');
+    if (!checkbox) return;
+    
     if (checkbox.checked) {
         // Salvar preferência por 30 dias
         const futureDate = new Date();
         futureDate.setDate(futureDate.getDate() + 30);
         localStorage.setItem('donation-popup-disabled-until', futureDate.toISOString());
+        console.log('✅ Popup de doação desabilitado por 30 dias');
     } else {
         localStorage.removeItem('donation-popup-disabled-until');
+        console.log('✅ Popup de doação reativado');
+    }
+}
+
+// ========== SISTEMA DE POPUP PERIÓDICO ==========
+let donationPopupInterval = null;
+
+function startPeriodicDonationPopup() {
+    // Limpar intervalo anterior se existir
+    if (donationPopupInterval) {
+        clearInterval(donationPopupInterval);
+    }
+    
+    // Verificar a cada 10 minutos se deve mostrar o popup
+    donationPopupInterval = setInterval(() => {
+        const disabledUntil = localStorage.getItem('donation-popup-disabled-until');
+        
+        // Se desabilitado, não mostrar
+        if (disabledUntil) {
+            const disabledDate = new Date(disabledUntil);
+            if (new Date() < disabledDate) {
+                return;
+            }
+        }
+        
+        // Verificar última vez que foi mostrado
+        const lastShown = localStorage.getItem('donation-popup-last-shown');
+        if (lastShown) {
+            const lastShownDate = new Date(lastShown);
+            const now = new Date();
+            const hoursSinceLastShown = (now - lastShownDate) / (1000 * 60 * 60);
+            
+            // Mostrar apenas se passou mais de 24 horas (1 dia)
+            if (hoursSinceLastShown < 24) {
+                return;
+            }
+        }
+        
+        // Mostrar popup
+        console.log('⏰ Mostrando popup periódico de doação');
+        showDonationPopup();
+        
+    }, 10 * 60 * 1000); // Verificar a cada 10 minutos
+}
+
+function stopPeriodicDonationPopup() {
+    if (donationPopupInterval) {
+        clearInterval(donationPopupInterval);
+        donationPopupInterval = null;
     }
 }
 
