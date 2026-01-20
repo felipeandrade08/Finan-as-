@@ -449,78 +449,185 @@ function showDonationPopup() {
         return;
     }
     
-    // Criar overlay do popup DIRETAMENTE NO BODY
+    // Criar overlay do popup DIRETAMENTE NO BODY com TODOS os estilos inline
     const overlay = document.createElement('div');
     overlay.id = 'donation-popup-overlay';
     overlay.className = 'donation-popup-overlay';
-    overlay.style.position = 'fixed';
-    overlay.style.top = '0';
-    overlay.style.left = '0';
-    overlay.style.width = '100%';
-    overlay.style.height = '100%';
-    overlay.style.zIndex = '999999';
+    
+    // FORÇAR TODOS OS ESTILOS INLINE
+    overlay.style.cssText = `
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        background: rgba(0, 0, 0, 0.85) !important;
+        backdrop-filter: blur(10px) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        z-index: 2147483647 !important;
+        padding: 20px !important;
+        margin: 0 !important;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+    `;
     
     overlay.innerHTML = `
-        <div class="donation-popup">
-            <button class="donation-close-btn" onclick="closeDonationPopup()">
+        <div class="donation-popup" style="
+            position: relative !important;
+            background: white !important;
+            border-radius: 24px !important;
+            max-width: 500px !important;
+            width: 100% !important;
+            max-height: 90vh !important;
+            overflow-y: auto !important;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6) !important;
+            transform: scale(0.7) translateY(100px);
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            margin: auto !important;
+        ">
+            <button class="donation-close-btn" onclick="closeDonationPopup()" style="
+                position: absolute;
+                top: 16px;
+                right: 16px;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                background: #f3f4f6;
+                border: none;
+                color: #4b5563;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 18px;
+                z-index: 10;
+                transition: all 0.3s ease;
+            ">
                 <i class="fas fa-times"></i>
             </button>
             
-            <div class="donation-popup-header">
-                <div class="donation-icon">
+            <div class="donation-popup-header" style="
+                background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+                padding: 40px 32px 32px;
+                text-align: center;
+                border-radius: 24px 24px 0 0;
+                color: white;
+            ">
+                <div class="donation-icon" style="
+                    width: 80px;
+                    height: 80px;
+                    background: rgba(255, 255, 255, 0.2);
+                    backdrop-filter: blur(10px);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 0 auto 20px;
+                    font-size: 40px;
+                    animation: heartbeat 2s ease-in-out infinite;
+                ">
                     <i class="fas fa-heart"></i>
                 </div>
-                <h2>Olá, ${DB.currentUser.name}! 👋</h2>
-                <p>Bem-vindo ao FinControl Pro</p>
+                <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 8px;">Olá, ${DB.currentUser.name}! 👋</h2>
+                <p style="font-size: 16px; opacity: 0.9;">Bem-vindo ao FinControl Pro</p>
             </div>
             
-            <div class="donation-popup-body">
-                <div class="donation-message">
-                    <i class="fas fa-coffee" style="font-size: 48px; color: var(--primary); margin-bottom: 16px;"></i>
-                    <h3>Gostando do FinControl Pro?</h3>
-                    <p>
+            <div class="donation-popup-body" style="padding: 32px;">
+                <div class="donation-message" style="text-align: center; margin-bottom: 32px;">
+                    <i class="fas fa-coffee" style="font-size: 48px; color: #1e3a8a; margin-bottom: 16px; display: block;"></i>
+                    <h3 style="font-size: 22px; font-weight: 700; color: #1f2937; margin-bottom: 16px;">Gostando do FinControl Pro?</h3>
+                    <p style="color: #4b5563; line-height: 1.6; font-size: 15px;">
                         Este projeto é <strong>gratuito e open source</strong>! 
                         Se está te ajudando a organizar suas finanças, 
                         considere fazer uma contribuição. ☕
                     </p>
-                    <p style="margin-top: 12px; font-size: 14px; color: var(--text-secondary);">
+                    <p style="margin-top: 12px; font-size: 14px; color: #6b7280;">
                         Seu apoio ajuda a manter o desenvolvimento e trazer novas funcionalidades!
                     </p>
                 </div>
                 
-                <div class="donation-pix-quick">
-                    <h4><i class="fas fa-qrcode"></i> PIX Rápido</h4>
-                    <div class="pix-key-quick">
-                        <input type="text" id="popup-pix-key" value="16992189862" readonly>
-                        <button onclick="copyPixFromPopup()" class="btn-copy-quick">
+                <div class="donation-pix-quick" style="
+                    background: linear-gradient(135deg, rgba(30, 58, 138, 0.05) 0%, rgba(34, 197, 94, 0.05) 100%);
+                    border: 2px solid #1e3a8a;
+                    border-radius: 16px;
+                    padding: 24px;
+                    text-align: center;
+                ">
+                    <h4 style="font-size: 18px; font-weight: 700; color: #1f2937; margin-bottom: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <i class="fas fa-qrcode"></i> PIX Rápido
+                    </h4>
+                    <div class="pix-key-quick" style="display: flex; gap: 0; margin-bottom: 12px;">
+                        <input type="text" id="popup-pix-key" value="felipe.pessoal2026@gmail.com" readonly style="
+                            flex: 1;
+                            padding: 14px 16px;
+                            border: 2px solid #e5e7eb;
+                            border-right: none;
+                            border-radius: 12px 0 0 12px;
+                            font-family: 'Courier New', monospace;
+                            font-size: 13px;
+                            background: white;
+                            color: #1f2937;
+                        ">
+                        <button onclick="copyPixFromPopup()" class="btn-copy-quick" style="
+                            padding: 14px 20px;
+                            background: #1e3a8a;
+                            color: white;
+                            border: none;
+                            border-radius: 0 12px 12px 0;
+                            cursor: pointer;
+                            font-size: 16px;
+                        ">
                             <i class="fas fa-copy"></i>
                         </button>
                     </div>
-                    <p id="popup-copy-feedback" class="popup-copy-feedback hidden">
+                    <p id="popup-copy-feedback" class="popup-copy-feedback hidden" style="color: #22c55e; font-weight: 600; font-size: 14px; margin-top: 8px;">
                         <i class="fas fa-check-circle"></i> Copiado!
                     </p>
                     
-                    <div class="donation-values-quick">
-                        <button class="value-btn-quick" onclick="selectValue(5)">R$ 5</button>
-                        <button class="value-btn-quick" onclick="selectValue(10)">R$ 10</button>
-                        <button class="value-btn-quick" onclick="selectValue(20)">R$ 20</button>
-                        <button class="value-btn-quick" onclick="selectValue(50)">R$ 50</button>
+                    <div class="donation-values-quick" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 16px;">
+                        <button class="value-btn-quick" onclick="selectValue(5)" style="padding: 12px; background: white; border: 2px solid #1e3a8a; border-radius: 10px; color: #1e3a8a; font-weight: 700; font-size: 14px; cursor: pointer;">R$ 5</button>
+                        <button class="value-btn-quick" onclick="selectValue(10)" style="padding: 12px; background: white; border: 2px solid #1e3a8a; border-radius: 10px; color: #1e3a8a; font-weight: 700; font-size: 14px; cursor: pointer;">R$ 10</button>
+                        <button class="value-btn-quick" onclick="selectValue(20)" style="padding: 12px; background: white; border: 2px solid #1e3a8a; border-radius: 10px; color: #1e3a8a; font-weight: 700; font-size: 14px; cursor: pointer;">R$ 20</button>
+                        <button class="value-btn-quick" onclick="selectValue(50)" style="padding: 12px; background: white; border: 2px solid #1e3a8a; border-radius: 10px; color: #1e3a8a; font-weight: 700; font-size: 14px; cursor: pointer;">R$ 50</button>
                     </div>
                 </div>
             </div>
             
-            <div class="donation-popup-footer">
-                <button class="btn-popup-secondary" onclick="closeDonationPopup()">
-                    Agora Não
-                </button>
-                <button class="btn-popup-primary" onclick="goToDonation()">
+            <div class="donation-popup-footer" style="padding: 0 32px 32px; display: flex; gap: 12px;">
+                <button class="btn-popup-secondary" onclick="closeDonationPopup()" style="
+                    flex: 1;
+                    padding: 14px 24px;
+                    border-radius: 12px;
+                    font-size: 15px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    background: #f3f4f6;
+                    color: #1f2937;
+                    border: none;
+                ">Agora Não</button>
+                <button class="btn-popup-primary" onclick="goToDonation()" style="
+                    flex: 1;
+                    padding: 14px 24px;
+                    border-radius: 12px;
+                    font-size: 15px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+                    color: white;
+                    border: none;
+                    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+                ">
                     <i class="fas fa-heart"></i> Quero Contribuir
                 </button>
             </div>
             
-            <div class="donation-popup-note">
-                <label>
-                    <input type="checkbox" id="dont-show-again" onchange="handleDontShowAgain()">
+            <div class="donation-popup-note" style="padding: 0 32px 24px; text-align: center;">
+                <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #6b7280; cursor: pointer;">
+                    <input type="checkbox" id="dont-show-again" onchange="handleDontShowAgain()" style="cursor: pointer;">
                     <span>Não mostrar novamente</span>
                 </label>
             </div>
@@ -529,10 +636,15 @@ function showDonationPopup() {
     
     // IMPORTANTE: Adicionar ao BODY, não ao main-app
     document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
     
     // Animar entrada
     setTimeout(() => {
-        overlay.classList.add('active');
+        overlay.style.opacity = '1';
+        const popup = overlay.querySelector('.donation-popup');
+        if (popup) {
+            popup.style.transform = 'scale(1) translateY(0)';
+        }
     }, 100);
     
     // Salvar timestamp da última exibição
@@ -542,10 +654,15 @@ function showDonationPopup() {
 function closeDonationPopup() {
     const overlay = document.getElementById('donation-popup-overlay');
     if (overlay) {
-        overlay.classList.remove('active');
+        overlay.style.opacity = '0';
+        const popup = overlay.querySelector('.donation-popup');
+        if (popup) {
+            popup.style.transform = 'scale(0.7) translateY(100px)';
+        }
         setTimeout(() => {
             overlay.remove();
-        }, 300);
+            document.body.style.overflow = '';
+        }, 400);
     }
 }
 
