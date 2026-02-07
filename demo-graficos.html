@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinControl Pro v4.0 - Demo Gráficos</title>
+    <link rel="stylesheet" href="styles-updated.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <div class="brand-icon">
+                    <img src="logo-fincontrol.png" alt="FinControl Pro">
+                </div>
+                <span class="brand-name">FinControl Pro</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <h2 class="page-title">📊 Demonstração de Gráficos Avançados</h2>
+                <p class="page-subtitle">Visualização completa dos dados financeiros</p>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="summary-card income-card">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="fas fa-arrow-up"></i>
+                    </div>
+                    <span>Receitas</span>
+                </div>
+                <p class="card-amount">R$ 15.750,00</p>
+                <p class="card-info">56% do total</p>
+            </div>
+
+            <div class="summary-card expense-card">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="fas fa-arrow-down"></i>
+                    </div>
+                    <span>Despesas</span>
+                </div>
+                <p class="card-amount">R$ 12.340,00</p>
+                <p class="card-info">44% do total</p>
+            </div>
+
+            <div class="summary-card balance-card">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="fas fa-wallet"></i>
+                    </div>
+                    <span>Saldo</span>
+                </div>
+                <p class="card-amount">R$ 3.410,00</p>
+                <p class="card-info">Situação positiva</p>
+            </div>
+        </div>
+
+        <!-- Gráfico de Evolução -->
+        <div class="card">
+            <h3 class="card-title">
+                <i class="fas fa-chart-area"></i> Evolução Financeira
+            </h3>
+            <div class="chart-container">
+                <canvas id="evolution-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Gráficos de Pizza e Comparação -->
+        <div class="grid-2">
+            <div class="card">
+                <h3 class="card-title">
+                    <i class="fas fa-chart-pie"></i> Gastos por Categoria
+                </h3>
+                <div class="chart-container">
+                    <canvas id="category-pie-chart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">
+                    <i class="fas fa-chart-bar"></i> Comparação Mensal
+                </h3>
+                <div class="chart-container">
+                    <canvas id="comparison-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráfico de Fluxo de Caixa -->
+        <div class="card">
+            <h3 class="card-title">
+                <i class="fas fa-chart-line"></i> Fluxo de Caixa Acumulado
+            </h3>
+            <div class="chart-container">
+                <canvas id="cashflow-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Botões de Exportação -->
+        <div class="card">
+            <h3 class="card-title">
+                <i class="fas fa-download"></i> Exportar Relatórios
+            </h3>
+            <div style="display: flex; gap: 16px;">
+                <button class="btn btn-primary" onclick="exportToPDF()">
+                    <i class="fas fa-file-pdf"></i> Gerar PDF
+                </button>
+                <button class="btn btn-success" onclick="exportToExcel()">
+                    <i class="fas fa-file-excel"></i> Gerar Excel
+                </button>
+                <button class="btn btn-primary" onclick="testNotifications()">
+                    <i class="fas fa-bell"></i> Testar Notificações
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Notification Container -->
+    <div id="notification-container" class="notification-container"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    
+    <script>
+        // Dados de exemplo (simular DB)
+        const DB = {
+            transactions: [
+                { date: '2025-01-15', type: 'income', category: 'Salário', amount: 5000, description: 'Salário Janeiro' },
+                { date: '2025-01-20', type: 'expense', category: 'Alimentação', amount: 850, description: 'Mercado' },
+                { date: '2025-01-25', type: 'expense', category: 'Transporte', amount: 420, description: 'Combustível' },
+                { date: '2025-02-01', type: 'income', category: 'Freelance', amount: 1500, description: 'Projeto Web' },
+                { date: '2025-02-05', type: 'expense', category: 'Moradia', amount: 1800, description: 'Aluguel' },
+                { date: '2024-12-15', type: 'income', category: 'Salário', amount: 5000, description: 'Salário Dezembro' },
+                { date: '2024-12-20', type: 'expense', category: 'Lazer', amount: 650, description: 'Entretenimento' },
+                { date: '2024-11-15', type: 'income', category: 'Salário', amount: 5000, description: 'Salário Novembro' },
+                { date: '2024-11-22', type: 'expense', category: 'Saúde', amount: 320, description: 'Farmácia' },
+                { date: '2024-10-15', type: 'income', category: 'Salário', amount: 5000, description: 'Salário Outubro' }
+            ],
+            categories: [
+                { name: 'Salário', type: 'income' },
+                { name: 'Freelance', type: 'income' },
+                { name: 'Alimentação', type: 'expense' },
+                { name: 'Transporte', type: 'expense' },
+                { name: 'Moradia', type: 'expense' },
+                { name: 'Saúde', type: 'expense' },
+                { name: 'Lazer', type: 'expense' }
+            ],
+            budgets: [],
+            goals: [],
+            investments: [],
+            creditCards: [],
+            monthlyBills: []
+        };
+
+        // Função auxiliar
+        function calculateTotals() {
+            const income = DB.transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const expense = DB.transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+            return { income, expense, balance: income - expense };
+        }
+        
+        function getBillStatus(bill) {
+            return { status: 'pending', text: 'Pendente', class: 'info' };
+        }
+    </script>
+    
+    <script src="app-charts.js"></script>
+    <script src="app-notifications.js"></script>
+    <script src="app-export.js"></script>
+    
+    <script>
+        // Inicializar gráficos
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 FinControl Pro v4.0 - Demo Carregada!');
+            updateAllCharts();
+        });
+
+        // Teste de notificações
+        function testNotifications() {
+            notify.success('Operação realizada com sucesso!');
+            setTimeout(() => notify.info('Esta é uma notificação informativa'), 1000);
+            setTimeout(() => notify.warning('Atenção: Orçamento em 80%'), 2000);
+            setTimeout(() => notify.error('Erro ao processar solicitação'), 3000);
+        }
+    </script>
+</body>
+</html>
