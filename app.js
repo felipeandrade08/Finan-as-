@@ -1,5 +1,5 @@
 // =============================================
-// FINCONTROL PRO v3.5 - COMPLETO COM FIREBASE
+// FINCONTROL PRO v4.0 - COMPLETO COM FIREBASE
 // Desenvolvido por: FELIPE ANDRADE DEV
 // =============================================
 
@@ -31,11 +31,10 @@ const DEFAULT_CATEGORIES = [
 ];
 
 let currentFilter = 'month';
-let charts = {};
 
 // ========== INICIALIZAÇÃO ==========
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('=== FINCONTROL PRO INICIANDO ===');
+    console.log('=== FINCONTROL PRO v4.0 INICIANDO ===');
     
     loadTheme();
     setupEventListeners();
@@ -113,24 +112,8 @@ function setupEventListeners() {
     document.getElementById('investment-form')?.addEventListener('submit', handleAddInvestment);
     document.getElementById('credit-card-form')?.addEventListener('submit', handleAddCreditCard);
     document.getElementById('bill-form')?.addEventListener('submit', handleAddBill);
-    document.getElementById('invite-family-btn')?.addEventListener('click', handleInviteFamily);
-
-    // Recurring checkbox
-    document.getElementById('transaction-recurring')?.addEventListener('change', (e) => {
-        const recurringOptions = document.getElementById('recurring-options');
-        if (recurringOptions) {
-            if (e.target.checked) {
-                recurringOptions.classList.remove('hidden');
-            } else {
-                recurringOptions.classList.add('hidden');
-            }
-        }
-    });
 
     // Categories
-    document.getElementById('manage-categories-btn')?.addEventListener('click', () => {
-        navigateTo('settings');
-    });
     document.getElementById('add-category-btn')?.addEventListener('click', handleAddCategory);
 
     // Export buttons
@@ -141,9 +124,6 @@ function setupEventListeners() {
     document.getElementById('backup-btn')?.addEventListener('click', handleBackup);
     document.getElementById('restore-btn')?.addEventListener('change', handleRestore);
     document.getElementById('clear-data-btn')?.addEventListener('click', handleClearData);
-
-    // PWA Install
-    document.getElementById('install-pwa-btn')?.addEventListener('click', handleInstallPWA);
 
     // Theme toggle
     const themeToggleBtn = document.getElementById('theme-toggle');
@@ -292,9 +272,6 @@ async function handleLogin(e) {
 async function handleLogout() {
     if (confirm('Deseja realmente sair?')) {
         try {
-            // Parar popup periódico
-            stopPeriodicDonationPopup();
-            
             await window.auth.signOut();
             DB.currentUser = null;
             DB.transactions = [];
@@ -423,353 +400,6 @@ function showMainApp() {
         document.getElementById('user-name').textContent = DB.currentUser.name;
     }
     navigateTo('dashboard');
-    
-    // Iniciar sistema de popup periódico
-    startPeriodicDonationPopup();
-    
-    // Mostrar popup de doação após 3 segundos do login
-    setTimeout(() => {
-        showDonationPopup();
-    }, 3000);
-}
-
-// ========== POPUP DE DOAÇÃO ==========
-function showDonationPopup() {
-    // Verificar se o usuário desabilitou permanentemente
-    const disabledUntil = localStorage.getItem('donation-popup-disabled-until');
-    if (disabledUntil) {
-        const disabledDate = new Date(disabledUntil);
-        if (new Date() < disabledDate) {
-            return; // Não mostrar até a data especificada
-        }
-    }
-    
-    // Verificar se já existe um popup aberto
-    if (document.getElementById('donation-popup-overlay')) {
-        return;
-    }
-    
-    // Criar overlay do popup DIRETAMENTE NO BODY com TODOS os estilos inline
-    const overlay = document.createElement('div');
-    overlay.id = 'donation-popup-overlay';
-    overlay.className = 'donation-popup-overlay';
-    
-    // FORÇAR TODOS OS ESTILOS INLINE
-    overlay.style.cssText = `
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        bottom: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        background: rgba(0, 0, 0, 0.85) !important;
-        backdrop-filter: blur(10px) !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        z-index: 2147483647 !important;
-        padding: 20px !important;
-        margin: 0 !important;
-        opacity: 0;
-        transition: opacity 0.4s ease;
-    `;
-    
-    overlay.innerHTML = `
-        <div class="donation-popup" style="
-            position: relative !important;
-            background: white !important;
-            border-radius: 24px !important;
-            max-width: 500px !important;
-            width: 100% !important;
-            max-height: 90vh !important;
-            overflow-y: auto !important;
-            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6) !important;
-            transform: scale(0.7) translateY(100px);
-            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-            margin: auto !important;
-        ">
-            <button class="donation-close-btn" onclick="closeDonationPopup()" style="
-                position: absolute;
-                top: 16px;
-                right: 16px;
-                width: 40px;
-                height: 40px;
-                border-radius: 50%;
-                background: #f3f4f6;
-                border: none;
-                color: #4b5563;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 18px;
-                z-index: 10;
-                transition: all 0.3s ease;
-            ">
-                <i class="fas fa-times"></i>
-            </button>
-            
-            <div class="donation-popup-header" style="
-                background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
-                padding: 40px 32px 32px;
-                text-align: center;
-                border-radius: 24px 24px 0 0;
-                color: white;
-            ">
-                <div class="donation-icon" style="
-                    width: 80px;
-                    height: 80px;
-                    background: rgba(255, 255, 255, 0.2);
-                    backdrop-filter: blur(10px);
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    margin: 0 auto 20px;
-                    font-size: 40px;
-                    animation: heartbeat 2s ease-in-out infinite;
-                ">
-                    <i class="fas fa-heart"></i>
-                </div>
-                <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 8px;">Olá, ${DB.currentUser.name}! 👋</h2>
-                <p style="font-size: 16px; opacity: 0.9;">Bem-vindo ao FinControl Pro</p>
-            </div>
-            
-            <div class="donation-popup-body" style="padding: 32px;">
-                <div class="donation-message" style="text-align: center; margin-bottom: 32px;">
-                    <i class="fas fa-coffee" style="font-size: 48px; color: #1e3a8a; margin-bottom: 16px; display: block;"></i>
-                    <h3 style="font-size: 22px; font-weight: 700; color: #1f2937; margin-bottom: 16px;">Gostando do FinControl Pro?</h3>
-                    <p style="color: #4b5563; line-height: 1.6; font-size: 15px;">
-                        Este projeto é <strong>gratuito e open source</strong>! 
-                        Se está te ajudando a organizar suas finanças, 
-                        considere fazer uma contribuição. ☕
-                    </p>
-                    <p style="margin-top: 12px; font-size: 14px; color: #6b7280;">
-                        Seu apoio ajuda a manter o desenvolvimento e trazer novas funcionalidades!
-                    </p>
-                </div>
-                
-                <div class="donation-pix-quick" style="
-                    background: linear-gradient(135deg, rgba(30, 58, 138, 0.05) 0%, rgba(34, 197, 94, 0.05) 100%);
-                    border: 2px solid #1e3a8a;
-                    border-radius: 16px;
-                    padding: 24px;
-                    text-align: center;
-                ">
-                    <h4 style="font-size: 18px; font-weight: 700; color: #1f2937; margin-bottom: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <i class="fas fa-qrcode"></i> PIX Rápido
-                    </h4>
-                    <div class="pix-key-quick" style="display: flex; gap: 0; margin-bottom: 12px;">
-                        <input type="text" id="popup-pix-key" value="felipe.pessoall2026@gmail.com" readonly style="
-                            flex: 1;
-                            padding: 14px 16px;
-                            border: 2px solid #e5e7eb;
-                            border-right: none;
-                            border-radius: 12px 0 0 12px;
-                            font-family: 'Courier New', monospace;
-                            font-size: 13px;
-                            background: white;
-                            color: #1f2937;
-                        ">
-                        <button onclick="copyPixFromPopup()" class="btn-copy-quick" style="
-                            padding: 14px 20px;
-                            background: #1e3a8a;
-                            color: white;
-                            border: none;
-                            border-radius: 0 12px 12px 0;
-                            cursor: pointer;
-                            font-size: 16px;
-                        ">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
-                    <p id="popup-copy-feedback" class="popup-copy-feedback hidden" style="color: #22c55e; font-weight: 600; font-size: 14px; margin-top: 8px;">
-                        <i class="fas fa-check-circle"></i> Copiado!
-                    </p>
-                    
-                    <div class="donation-values-quick" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 16px;">
-                        <button class="value-btn-quick" onclick="selectValue(5)" style="padding: 12px; background: white; border: 2px solid #1e3a8a; border-radius: 10px; color: #1e3a8a; font-weight: 700; font-size: 14px; cursor: pointer;">R$ 5</button>
-                        <button class="value-btn-quick" onclick="selectValue(10)" style="padding: 12px; background: white; border: 2px solid #1e3a8a; border-radius: 10px; color: #1e3a8a; font-weight: 700; font-size: 14px; cursor: pointer;">R$ 10</button>
-                        <button class="value-btn-quick" onclick="selectValue(20)" style="padding: 12px; background: white; border: 2px solid #1e3a8a; border-radius: 10px; color: #1e3a8a; font-weight: 700; font-size: 14px; cursor: pointer;">R$ 20</button>
-                        <button class="value-btn-quick" onclick="selectValue(50)" style="padding: 12px; background: white; border: 2px solid #1e3a8a; border-radius: 10px; color: #1e3a8a; font-weight: 700; font-size: 14px; cursor: pointer;">R$ 50</button>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="donation-popup-footer" style="padding: 0 32px 32px; display: flex; gap: 12px;">
-                <button class="btn-popup-secondary" onclick="closeDonationPopup()" style="
-                    flex: 1;
-                    padding: 14px 24px;
-                    border-radius: 12px;
-                    font-size: 15px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    background: #f3f4f6;
-                    color: #1f2937;
-                    border: none;
-                ">Agora Não</button>
-                <button class="btn-popup-primary" onclick="goToDonation()" style="
-                    flex: 1;
-                    padding: 14px 24px;
-                    border-radius: 12px;
-                    font-size: 15px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-                    color: white;
-                    border: none;
-                    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
-                ">
-                    <i class="fas fa-heart"></i> Quero Contribuir
-                </button>
-            </div>
-            
-            <div class="donation-popup-note" style="padding: 0 32px 24px; text-align: center;">
-                <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #6b7280; cursor: pointer;">
-                    <input type="checkbox" id="dont-show-again" onchange="handleDontShowAgain()" style="cursor: pointer;">
-                    <span>Não mostrar novamente</span>
-                </label>
-            </div>
-        </div>
-    `;
-    
-    // IMPORTANTE: Adicionar ao BODY, não ao main-app
-    document.body.appendChild(overlay);
-    document.body.style.overflow = 'hidden';
-    
-    // Animar entrada
-    setTimeout(() => {
-        overlay.style.opacity = '1';
-        const popup = overlay.querySelector('.donation-popup');
-        if (popup) {
-            popup.style.transform = 'scale(1) translateY(0)';
-        }
-    }, 100);
-    
-    // Salvar timestamp da última exibição
-    localStorage.setItem('donation-popup-last-shown', new Date().toISOString());
-}
-
-function closeDonationPopup() {
-    const overlay = document.getElementById('donation-popup-overlay');
-    if (overlay) {
-        overlay.style.opacity = '0';
-        const popup = overlay.querySelector('.donation-popup');
-        if (popup) {
-            popup.style.transform = 'scale(0.7) translateY(100px)';
-        }
-        setTimeout(() => {
-            overlay.remove();
-            document.body.style.overflow = '';
-        }, 400);
-    }
-}
-
-function copyPixFromPopup() {
-    const pixKey = document.getElementById('popup-pix-key');
-    const feedback = document.getElementById('popup-copy-feedback');
-    
-    if (!pixKey || !feedback) return;
-    
-    pixKey.select();
-    pixKey.setSelectionRange(0, 99999);
-    
-    navigator.clipboard.writeText(pixKey.value).then(() => {
-        feedback.classList.remove('hidden');
-        setTimeout(() => {
-            feedback.classList.add('hidden');
-        }, 3000);
-    }).catch(err => {
-        console.error('Erro ao copiar:', err);
-        alert('Chave PIX copiada: ' + pixKey.value);
-    });
-}
-
-function selectValue(value) {
-    const pixKey = document.getElementById('popup-pix-key');
-    if (!pixKey) return;
-    
-    alert(`💰 Valor sugerido: R$ ${value.toFixed(2)}\n\n📋 Chave PIX copiada!\nCole no seu app de pagamentos.`);
-    copyPixFromPopup();
-}
-
-function goToDonation() {
-    closeDonationPopup();
-    navigateTo('settings');
-    
-    // Scroll para a seção de contribuição
-    setTimeout(() => {
-        const contributionSection = document.querySelector('.contribution-section');
-        if (contributionSection) {
-            contributionSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            contributionSection.style.animation = 'pulse 2s ease';
-        }
-    }, 500);
-}
-
-function handleDontShowAgain() {
-    const checkbox = document.getElementById('dont-show-again');
-    if (!checkbox) return;
-    
-    if (checkbox.checked) {
-        // Salvar preferência por 30 dias
-        const futureDate = new Date();
-        futureDate.setDate(futureDate.getDate() + 30);
-        localStorage.setItem('donation-popup-disabled-until', futureDate.toISOString());
-        console.log('✅ Popup de doação desabilitado por 30 dias');
-    } else {
-        localStorage.removeItem('donation-popup-disabled-until');
-        console.log('✅ Popup de doação reativado');
-    }
-}
-
-// ========== SISTEMA DE POPUP PERIÓDICO ==========
-let donationPopupInterval = null;
-
-function startPeriodicDonationPopup() {
-    // Limpar intervalo anterior se existir
-    if (donationPopupInterval) {
-        clearInterval(donationPopupInterval);
-    }
-    
-    // Verificar a cada 10 minutos se deve mostrar o popup
-    donationPopupInterval = setInterval(() => {
-        const disabledUntil = localStorage.getItem('donation-popup-disabled-until');
-        
-        // Se desabilitado, não mostrar
-        if (disabledUntil) {
-            const disabledDate = new Date(disabledUntil);
-            if (new Date() < disabledDate) {
-                return;
-            }
-        }
-        
-        // Verificar última vez que foi mostrado
-        const lastShown = localStorage.getItem('donation-popup-last-shown');
-        if (lastShown) {
-            const lastShownDate = new Date(lastShown);
-            const now = new Date();
-            const hoursSinceLastShown = (now - lastShownDate) / (1000 * 60 * 60);
-            
-            // Mostrar apenas se passou mais de 24 horas (1 dia)
-            if (hoursSinceLastShown < 24) {
-                return;
-            }
-        }
-        
-        // Mostrar popup
-        console.log('⏰ Mostrando popup periódico de doação');
-        showDonationPopup();
-        
-    }, 10 * 60 * 1000); // Verificar a cada 10 minutos
-}
-
-function stopPeriodicDonationPopup() {
-    if (donationPopupInterval) {
-        clearInterval(donationPopupInterval);
-        donationPopupInterval = null;
-    }
 }
 
 function navigateTo(page) {
@@ -812,9 +442,6 @@ function navigateTo(page) {
         case 'bills':
             updateBillsList();
             break;
-        case 'family':
-            updateFamilyMembersList();
-            break;
         case 'settings':
             updateCategoriesList();
             loadCategories();
@@ -833,7 +460,7 @@ async function handleAddTransaction(e) {
     const description = document.getElementById('transaction-description').value;
 
     if (!type || !amount || !category || !date) {
-        showAlert('transaction-error', 'Preencha todos os campos obrigatórios');
+        notify.error('Preencha todos os campos obrigatórios');
         return;
     }
 
@@ -860,16 +487,14 @@ async function handleAddTransaction(e) {
             description
         });
         
-        showAlert('transaction-success', 'Transação adicionada com sucesso!');
+        notify.success('Transação adicionada com sucesso!');
         document.getElementById('transaction-form').reset();
         updateTransactionsList();
         updateDashboard();
         
-        setTimeout(() => hideAlert('transaction-success'), 3000);
-        
     } catch (error) {
         console.error('Erro ao adicionar transação:', error);
-        showAlert('transaction-error', 'Erro ao salvar transação');
+        notify.error('Erro ao salvar transação');
     }
 }
 
@@ -935,7 +560,17 @@ function updateDashboard() {
     
     updateRecentTransactions();
     updateGoalsPreview();
-    updateEvolutionChart();
+    
+    // NOVO: Atualizar gráficos
+    if (typeof updateAllCharts === 'function') {
+        updateAllCharts();
+    }
+    
+    // NOVO: Verificar notificações
+    if (typeof runAllNotificationChecks === 'function') {
+        runAllNotificationChecks();
+    }
+    
     checkBillsAlerts();
 }
 
@@ -1010,7 +645,7 @@ async function handleAddBudget(e) {
     const amount = parseFloat(document.getElementById('budget-amount').value);
 
     if (!category || !amount) {
-        showAlert('budget-error', 'Preencha todos os campos');
+        notify.error('Preencha todos os campos');
         return;
     }
 
@@ -1031,15 +666,13 @@ async function handleAddBudget(e) {
             amount
         });
         
-        showAlert('budget-success', 'Orçamento adicionado com sucesso!');
+        notify.success('Orçamento adicionado com sucesso!');
         document.getElementById('budget-form').reset();
         updateBudgetsList();
         
-        setTimeout(() => hideAlert('budget-success'), 3000);
-        
     } catch (error) {
         console.error('Erro ao adicionar orçamento:', error);
-        showAlert('budget-error', 'Erro ao salvar orçamento');
+        notify.error('Erro ao salvar orçamento');
     }
 }
 
@@ -1083,6 +716,8 @@ function updateBudgetsList() {
     }).join('');
 }
 
+// Continua no próximo bloco...
+
 // ========== METAS ==========
 async function handleAddGoal(e) {
     e.preventDefault();
@@ -1092,7 +727,7 @@ async function handleAddGoal(e) {
     const deadline = document.getElementById('goal-deadline').value;
 
     if (!name || !amount || !deadline) {
-        showAlert('goal-error', 'Preencha todos os campos');
+        notify.error('Preencha todos os campos');
         return;
     }
 
@@ -1117,15 +752,13 @@ async function handleAddGoal(e) {
             deadline
         });
         
-        showAlert('goal-success', 'Meta criada com sucesso!');
+        notify.success('Meta criada com sucesso!');
         document.getElementById('goal-form').reset();
         updateGoalsList();
         
-        setTimeout(() => hideAlert('goal-success'), 3000);
-        
     } catch (error) {
         console.error('Erro ao adicionar meta:', error);
-        showAlert('goal-error', 'Erro ao salvar meta');
+        notify.error('Erro ao salvar meta');
     }
 }
 
@@ -1225,7 +858,7 @@ async function handleAddInvestment(e) {
     const yieldRate = parseFloat(document.getElementById('investment-yield').value) || 0;
 
     if (!name || !type || !amount || !date) {
-        showAlert('investment-error', 'Preencha todos os campos obrigatórios');
+        notify.error('Preencha todos os campos obrigatórios');
         return;
     }
 
@@ -1254,15 +887,13 @@ async function handleAddInvestment(e) {
             yieldRate
         });
         
-        showAlert('investment-success', 'Investimento adicionado com sucesso!');
+        notify.success('Investimento adicionado com sucesso!');
         document.getElementById('investment-form').reset();
         updateInvestmentsList();
         
-        setTimeout(() => hideAlert('investment-success'), 3000);
-        
     } catch (error) {
         console.error('Erro ao adicionar investimento:', error);
-        showAlert('investment-error', 'Erro ao salvar investimento');
+        notify.error('Erro ao salvar investimento');
     }
 }
 
@@ -1337,7 +968,7 @@ async function handleAddCreditCard(e) {
     const category = document.getElementById('card-category').value;
 
     if (!cardName || !description || !amount || !date || !installments) {
-        showAlert('card-error', 'Preencha todos os campos obrigatórios');
+        notify.error('Preencha todos os campos obrigatórios');
         return;
     }
 
@@ -1368,15 +999,13 @@ async function handleAddCreditCard(e) {
             category
         });
         
-        showAlert('card-success', 'Compra adicionada com sucesso!');
+        notify.success('Compra adicionada com sucesso!');
         document.getElementById('credit-card-form').reset();
         updateCreditCardsList();
         
-        setTimeout(() => hideAlert('card-success'), 3000);
-        
     } catch (error) {
         console.error('Erro ao adicionar compra:', error);
-        showAlert('card-error', 'Erro ao salvar compra');
+        notify.error('Erro ao salvar compra');
     }
 }
 
@@ -1423,7 +1052,7 @@ async function handleAddBill(e) {
     const notes = document.getElementById('bill-notes').value;
 
     if (!type || !amount || !dueDay) {
-        showAlert('bill-error', 'Preencha todos os campos obrigatórios');
+        notify.error('Preencha todos os campos obrigatórios');
         return;
     }
 
@@ -1452,16 +1081,14 @@ async function handleAddBill(e) {
             payments: []
         });
         
-        showAlert('bill-success', 'Conta adicionada com sucesso!');
+        notify.success('Conta adicionada com sucesso!');
         document.getElementById('bill-form').reset();
         updateBillsList();
         checkBillsAlerts();
         
-        setTimeout(() => hideAlert('bill-success'), 3000);
-        
     } catch (error) {
         console.error('Erro ao adicionar conta:', error);
-        showAlert('bill-error', 'Erro ao salvar conta');
+        notify.error('Erro ao salvar conta');
     }
 }
 
@@ -1489,8 +1116,7 @@ async function markBillAsPaid(billId, month, year) {
             });
         
         updateBillsList();
-        showAlert('bill-success', 'Conta marcada como paga!');
-        setTimeout(() => hideAlert('bill-success'), 3000);
+        notify.success('Conta marcada como paga!');
         
     } catch (error) {
         console.error('Erro ao marcar conta como paga:', error);
@@ -1689,43 +1315,13 @@ function updateBillsCalendar() {
     `;
 }
 
-// ========== FAMÍLIA ==========
-function handleInviteFamily() {
-    const email = document.getElementById('family-email').value;
-    const permission = document.getElementById('family-permission').value;
-
-    if (!email || !permission) {
-        showAlert('family-error', 'Preencha todos os campos');
-        return;
-    }
-
-    showAlert('family-success', `Convite enviado para ${email} com permissão de ${permission}`);
-    
-    document.getElementById('family-email').value = '';
-    
-    setTimeout(() => hideAlert('family-success'), 3000);
-}
-
-function updateFamilyMembersList() {
-    const container = document.getElementById('family-members-list');
-    if (!container) return;
-    
-    container.innerHTML = `
-        <div class="empty-state">
-            <i class="fas fa-users"></i>
-            <p>Nenhum membro adicionado ainda</p>
-            <p style="font-size: 14px; margin-top: 8px;">Convide membros da família para compartilhar finanças</p>
-        </div>
-    `;
-}
-
 // ========== CATEGORIAS ==========
 async function handleAddCategory() {
     const name = document.getElementById('new-category-name').value;
     const type = document.getElementById('new-category-type').value;
 
     if (!name || !type) {
-        showAlert('categories-error', 'Preencha todos os campos');
+        notify.error('Preencha todos os campos');
         return;
     }
 
@@ -1745,12 +1341,10 @@ async function handleAddCategory() {
             type
         });
         
-        showAlert('categories-success', 'Categoria adicionada com sucesso!');
+        notify.success('Categoria adicionada com sucesso!');
         document.getElementById('new-category-name').value = '';
         updateCategoriesList();
         loadCategories();
-        
-        setTimeout(() => hideAlert('categories-success'), 3000);
         
     } catch (error) {
         console.error('Erro ao adicionar categoria:', error);
@@ -1792,25 +1386,16 @@ function loadCategories() {
 
 // ========== RELATÓRIOS ==========
 function updateReports() {
-    console.log('Atualizando relatórios...');
-    // Implementar gráficos e relatórios detalhados
-}
-
-function updateEvolutionChart() {
-    const canvas = document.getElementById('evolution-chart');
-    if (!canvas) return;
+    const totals = calculateTotals();
     
-    console.log('Atualizando gráfico de evolução...');
-    // Implementar Chart.js aqui
-}
-
-// ========== EXPORTAÇÃO ==========
-function exportToPDF() {
-    alert('Funcionalidade de exportação PDF será implementada em breve!');
-}
-
-function exportToExcel() {
-    alert('Funcionalidade de exportação Excel será implementada em breve!');
+    document.getElementById('report-income').textContent = `R$ ${totals.income.toFixed(2)}`;
+    document.getElementById('report-expense').textContent = `R$ ${totals.expense.toFixed(2)}`;
+    document.getElementById('report-balance').textContent = `R$ ${totals.balance.toFixed(2)}`;
+    
+    // Atualizar gráficos da página de relatórios
+    if (typeof updateAllCharts === 'function') {
+        updateAllCharts();
+    }
 }
 
 // ========== BACKUP ==========
@@ -1833,8 +1418,7 @@ function handleBackup() {
     link.download = `fincontrol-backup-${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     
-    showAlert('backup-success', 'Backup realizado com sucesso!');
-    setTimeout(() => hideAlert('backup-success'), 3000);
+    notify.success('Backup realizado com sucesso!');
 }
 
 function handleRestore(e) {
@@ -1855,14 +1439,11 @@ function handleRestore(e) {
                 DB.monthlyBills = data.monthlyBills || [];
                 DB.categories = data.categories || DEFAULT_CATEGORIES;
                 
-                showAlert('backup-success', 'Backup restaurado com sucesso!');
+                notify.success('Backup restaurado com sucesso!');
                 updateDashboard();
-                
-                setTimeout(() => hideAlert('backup-success'), 3000);
             }
         } catch (error) {
-            showAlert('backup-error', 'Erro ao restaurar backup. Arquivo inválido.');
-            setTimeout(() => hideAlert('backup-error'), 3000);
+            notify.error('Erro ao restaurar backup. Arquivo inválido.');
         }
     };
     reader.readAsText(file);
@@ -1902,20 +1483,13 @@ async function handleClearData() {
         DB.creditCards = [];
         DB.monthlyBills = [];
         
-        showAlert('backup-success', 'Todos os dados foram apagados com sucesso!');
+        notify.success('Todos os dados foram apagados com sucesso!');
         updateDashboard();
-        
-        setTimeout(() => hideAlert('backup-success'), 3000);
         
     } catch (error) {
         console.error('Erro ao limpar dados:', error);
-        showAlert('backup-error', 'Erro ao limpar dados');
+        notify.error('Erro ao limpar dados');
     }
-}
-
-// ========== PWA ==========
-function handleInstallPWA() {
-    alert('Para instalar o app:\n\n• No Chrome: Menu > Instalar App\n• No Safari: Compartilhar > Adicionar à Tela Inicial\n• No Edge: Menu > Aplicativos > Instalar este site');
 }
 
 // ========== FUNÇÕES AUXILIARES ==========
@@ -2009,7 +1583,7 @@ function showTerms() {
                 <p>Seus dados são privados e criptografados.</p>
                 
                 <h3>4. Contato</h3>
-                <p>felipe.andrade.dev@email.com</p>
+                <p>felipe.pessoall2026@gmail.com</p>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-primary" onclick="this.closest('.modal-overlay').remove()">
@@ -2108,4 +1682,4 @@ function toggleTheme() {
     applyTheme(newTheme);
 }
 
-console.log('✅ FinControl Pro carregado!');
+console.log('✅ FinControl Pro v4.0 carregado!');
