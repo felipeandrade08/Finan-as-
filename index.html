@@ -4,12 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Sistema completo de controle financeiro pessoal - FinControl Pro">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#1e3a8a">
     <title>FinControl Pro - Sistema de Controle Financeiro</title>
-    <link rel="stylesheet" href="styles.css">
+    
+    <!-- CSS Atualizado v4.0 -->
+    <link rel="stylesheet" href="styles-updated.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" type="image/png" href="icon-192.png">
+    <link rel="icon" type="image/png" href="logo-fincontrol.png">
+    
     <script>
         (function() {
             const savedTheme = localStorage.getItem('fincontrol-theme') || 'light';
@@ -28,7 +31,7 @@
     </div>
 
     <!-- Login Page -->
-    <div id="login-page" class="page-container">
+    <div id="login-page" class="page-container hidden">
         <div class="auth-background">
             <div class="background-decoration"></div>
             <div class="background-decoration-2"></div>
@@ -57,7 +60,9 @@
                 <div id="login-error" class="alert alert-error hidden"></div>
                 <div id="login-success" class="alert alert-success hidden"></div>
 
-                <button type="submit" class="btn btn-primary btn-full">Entrar</button>
+                <button type="submit" class="btn btn-primary btn-full">
+                    <i class="fas fa-sign-in-alt"></i> Entrar
+                </button>
             </form>
 
             <div class="auth-footer">
@@ -134,7 +139,9 @@
                 <div id="register-error" class="alert alert-error hidden"></div>
                 <div id="register-success" class="alert alert-success hidden"></div>
 
-                <button type="submit" class="btn btn-primary btn-full">Criar Conta</button>
+                <button type="submit" class="btn btn-primary btn-full">
+                    <i class="fas fa-user-plus"></i> Criar Conta
+                </button>
             </form>
 
             <div class="auth-footer">
@@ -186,9 +193,6 @@
                     </button>
                     <button class="nav-item" data-page="bills">
                         <i class="fas fa-file-invoice-dollar"></i> <span>Contas</span>
-                    </button>
-                    <button class="nav-item" data-page="family">
-                        <i class="fas fa-users"></i> <span>Família</span>
                     </button>
                     <button class="nav-item" data-page="settings">
                         <i class="fas fa-cog"></i> <span>Configurações</span>
@@ -259,12 +263,45 @@
                     </div>
                 </div>
 
-                <!-- Chart -->
+                <!-- Gráfico de Evolução -->
                 <div class="card">
                     <h3 class="card-title">
                         <i class="fas fa-chart-area"></i> Evolução Financeira
                     </h3>
-                    <canvas id="evolution-chart"></canvas>
+                    <div class="chart-container">
+                        <canvas id="evolution-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Gráficos de Pizza e Comparação -->
+                <div class="grid-2">
+                    <div class="card">
+                        <h3 class="card-title">
+                            <i class="fas fa-chart-pie"></i> Gastos por Categoria
+                        </h3>
+                        <div class="chart-container">
+                            <canvas id="category-pie-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title">
+                            <i class="fas fa-chart-bar"></i> Comparação Mensal
+                        </h3>
+                        <div class="chart-container">
+                            <canvas id="comparison-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráfico de Fluxo de Caixa -->
+                <div class="card">
+                    <h3 class="card-title">
+                        <i class="fas fa-chart-line"></i> Fluxo de Caixa Acumulado
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="cashflow-chart"></canvas>
+                    </div>
                 </div>
 
                 <!-- Recent Transactions and Goals -->
@@ -297,7 +334,7 @@
 
             <!-- Transactions Page -->
             <div id="transactions-page" class="content-page hidden">
-                <h2 class="page-title">Lançamentos Financeiros</h2>
+                <h2 class="page-title"><i class="fas fa-exchange-alt"></i> Lançamentos Financeiros</h2>
 
                 <div class="card">
                     <h3 class="card-title">
@@ -323,9 +360,6 @@
                             <select id="transaction-category" required>
                                 <option value="">Selecione uma categoria</option>
                             </select>
-                            <button type="button" id="manage-categories-btn" class="link-button" style="margin-top: 4px;">
-                                <i class="fas fa-cog"></i> Gerenciar categorias
-                            </button>
                         </div>
 
                         <div class="form-group">
@@ -369,35 +403,64 @@
                         <button id="export-pdf-btn" class="btn btn-primary" style="padding: 10px 16px;">
                             <i class="fas fa-file-pdf"></i> PDF
                         </button>
-                        <button id="export-excel-btn" class="btn btn-primary" style="padding: 10px 16px;">
+                        <button id="export-excel-btn" class="btn btn-success" style="padding: 10px 16px;">
                             <i class="fas fa-file-excel"></i> Excel
                         </button>
                     </div>
                 </div>
 
+                <!-- Resumo -->
+                <div class="summary-cards">
+                    <div class="summary-card income-card">
+                        <div class="card-header">
+                            <div class="card-icon"><i class="fas fa-arrow-up"></i></div>
+                            <span>Receitas</span>
+                        </div>
+                        <p class="card-amount" id="report-income">R$ 0,00</p>
+                    </div>
+                    <div class="summary-card expense-card">
+                        <div class="card-header">
+                            <div class="card-icon"><i class="fas fa-arrow-down"></i></div>
+                            <span>Despesas</span>
+                        </div>
+                        <p class="card-amount" id="report-expense">R$ 0,00</p>
+                    </div>
+                    <div class="summary-card balance-card">
+                        <div class="card-header">
+                            <div class="card-icon"><i class="fas fa-wallet"></i></div>
+                            <span>Saldo</span>
+                        </div>
+                        <p class="card-amount" id="report-balance">R$ 0,00</p>
+                    </div>
+                </div>
+
+                <!-- Gráficos -->
                 <div class="card">
-                    <h3 class="card-title">Evolução Temporal</h3>
-                    <canvas id="temporal-chart"></canvas>
+                    <h3 class="card-title"><i class="fas fa-chart-area"></i> Evolução Temporal</h3>
+                    <div class="chart-container">
+                        <canvas id="reports-evolution-chart"></canvas>
+                    </div>
                 </div>
 
                 <div class="grid-2">
                     <div class="card">
-                        <h3 class="card-title">Comparativo Mensal</h3>
-                        <canvas id="comparison-chart"></canvas>
+                        <h3 class="card-title"><i class="fas fa-chart-pie"></i> Distribuição de Gastos</h3>
+                        <div class="chart-container">
+                            <canvas id="reports-category-chart"></canvas>
+                        </div>
                     </div>
-
                     <div class="card">
-                        <h3 class="card-title">Distribuição de Gastos</h3>
-                        <canvas id="distribution-chart"></canvas>
+                        <h3 class="card-title"><i class="fas fa-chart-bar"></i> Comparativo Mensal</h3>
+                        <div class="chart-container">
+                            <canvas id="reports-comparison-chart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Budgets Page -->
             <div id="budgets-page" class="content-page hidden">
-                <h2 class="page-title">
-                    <i class="fas fa-piggy-bank"></i> Orçamentos
-                </h2>
+                <h2 class="page-title"><i class="fas fa-piggy-bank"></i> Orçamentos</h2>
 
                 <div class="card">
                     <h3 class="card-title">Definir Novo Orçamento</h3>
@@ -406,15 +469,12 @@
                             <label>Categoria *</label>
                             <input type="text" id="budget-category" placeholder="Ex: Alimentação, Transporte" required>
                         </div>
-
                         <div class="form-group">
                             <label>Valor Mensal *</label>
                             <input type="number" id="budget-amount" step="0.01" placeholder="0.00" required>
                         </div>
-
                         <div id="budget-error" class="alert alert-error hidden form-full"></div>
                         <div id="budget-success" class="alert alert-success hidden form-full"></div>
-
                         <button type="submit" class="btn btn-primary form-full">
                             <i class="fas fa-plus"></i> Adicionar Orçamento
                         </button>
@@ -429,9 +489,7 @@
 
             <!-- Goals Page -->
             <div id="goals-page" class="content-page hidden">
-                <h2 class="page-title">
-                    <i class="fas fa-bullseye"></i> Metas Financeiras
-                </h2>
+                <h2 class="page-title"><i class="fas fa-bullseye"></i> Metas Financeiras</h2>
 
                 <div class="card">
                     <h3 class="card-title">Criar Nova Meta</h3>
@@ -440,20 +498,16 @@
                             <label>Nome da Meta *</label>
                             <input type="text" id="goal-name" placeholder="Ex: Viagem, Carro novo" required>
                         </div>
-
                         <div class="form-group">
                             <label>Valor Alvo *</label>
                             <input type="number" id="goal-amount" step="0.01" placeholder="0.00" required>
                         </div>
-
                         <div class="form-group">
                             <label>Data Limite *</label>
                             <input type="date" id="goal-deadline" required>
                         </div>
-
                         <div id="goal-error" class="alert alert-error hidden form-full"></div>
                         <div id="goal-success" class="alert alert-success hidden form-full"></div>
-
                         <button type="submit" class="btn btn-primary form-full">
                             <i class="fas fa-plus"></i> Criar Meta
                         </button>
@@ -468,9 +522,7 @@
 
             <!-- Investments Page -->
             <div id="investments-page" class="content-page hidden">
-                <h2 class="page-title">
-                    <i class="fas fa-chart-line"></i> Investimentos
-                </h2>
+                <h2 class="page-title"><i class="fas fa-chart-line"></i> Investimentos</h2>
 
                 <div class="card">
                     <h3 class="card-title">Adicionar Investimento</h3>
@@ -479,7 +531,6 @@
                             <label>Nome do Investimento *</label>
                             <input type="text" id="investment-name" placeholder="Ex: Tesouro Direto, Ações" required>
                         </div>
-
                         <div class="form-group">
                             <label>Tipo *</label>
                             <select id="investment-type" required>
@@ -493,30 +544,24 @@
                                 <option value="outros">Outros</option>
                             </select>
                         </div>
-
                         <div class="form-group">
                             <label>Valor Investido *</label>
                             <input type="number" id="investment-amount" step="0.01" placeholder="0.00" required>
                         </div>
-
                         <div class="form-group">
                             <label>Valor Atual</label>
                             <input type="number" id="investment-current" step="0.01" placeholder="0.00">
                         </div>
-
                         <div class="form-group">
                             <label>Data do Investimento *</label>
                             <input type="date" id="investment-date" required>
                         </div>
-
                         <div class="form-group">
                             <label>Rendimento Esperado (% a.a.)</label>
                             <input type="number" id="investment-yield" step="0.01" placeholder="0.00">
                         </div>
-
                         <div id="investment-error" class="alert alert-error hidden form-full"></div>
                         <div id="investment-success" class="alert alert-success hidden form-full"></div>
-
                         <button type="submit" class="btn btn-primary form-full">
                             <i class="fas fa-plus"></i> Adicionar Investimento
                         </button>
@@ -545,10 +590,11 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="card">
                         <h3 class="card-title">Distribuição por Tipo</h3>
-                        <canvas id="investment-distribution-chart"></canvas>
+                        <div class="chart-container">
+                            <canvas id="investment-distribution-chart"></canvas>
+                        </div>
                     </div>
                 </div>
 
@@ -560,9 +606,7 @@
 
             <!-- Credit Cards Page -->
             <div id="credit-cards-page" class="content-page hidden">
-                <h2 class="page-title">
-                    <i class="fas fa-credit-card"></i> Cartões de Crédito
-                </h2>
+                <h2 class="page-title"><i class="fas fa-credit-card"></i> Cartões de Crédito</h2>
 
                 <div class="card">
                     <h3 class="card-title">Adicionar Compra no Cartão</h3>
@@ -571,22 +615,18 @@
                             <label>Nome do Cartão *</label>
                             <input type="text" id="card-name" placeholder="Ex: Nubank, Inter" required>
                         </div>
-
                         <div class="form-group">
                             <label>Descrição da Compra *</label>
                             <input type="text" id="card-description" placeholder="Ex: Compra na Amazon" required>
                         </div>
-
                         <div class="form-group">
                             <label>Valor Total *</label>
                             <input type="number" id="card-amount" step="0.01" placeholder="0.00" required>
                         </div>
-
                         <div class="form-group">
                             <label>Data da Compra *</label>
                             <input type="date" id="card-date" required>
                         </div>
-
                         <div class="form-group">
                             <label>Número de Parcelas *</label>
                             <select id="card-installments" required>
@@ -603,7 +643,6 @@
                                 <option value="12">12x</option>
                             </select>
                         </div>
-
                         <div class="form-group">
                             <label>Categoria</label>
                             <select id="card-category">
@@ -616,26 +655,12 @@
                                 <option value="Outros">Outros</option>
                             </select>
                         </div>
-
                         <div id="card-error" class="alert alert-error hidden form-full"></div>
                         <div id="card-success" class="alert alert-success hidden form-full"></div>
-
                         <button type="submit" class="btn btn-primary form-full">
                             <i class="fas fa-plus"></i> Adicionar Compra
                         </button>
                     </form>
-                </div>
-
-                <div class="grid-2">
-                    <div class="card">
-                        <h3 class="card-title">Resumo dos Cartões</h3>
-                        <div id="cards-summary"></div>
-                    </div>
-
-                    <div class="card">
-                        <h3 class="card-title">Próximas Faturas</h3>
-                        <div id="next-invoices"></div>
-                    </div>
                 </div>
 
                 <div class="card">
@@ -644,63 +669,9 @@
                 </div>
             </div>
 
-            <!-- Family Page -->
-            <div id="family-page" class="content-page hidden">
-                <h2 class="page-title">
-                    <i class="fas fa-users"></i> Compartilhamento Familiar
-                </h2>
-
-                <div class="card">
-                    <h3 class="card-title">
-                        <i class="fas fa-user-plus"></i> Convidar Membro da Família
-                    </h3>
-                    
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>Email do Membro *</label>
-                            <input type="email" id="family-email" placeholder="email@exemplo.com">
-                        </div>
-                        <div class="form-group">
-                            <label>Permissão *</label>
-                            <select id="family-permission">
-                                <option value="view">Visualizar apenas</option>
-                                <option value="edit">Visualizar e editar</option>
-                                <option value="admin">Administrador</option>
-                            </select>
-                        </div>
-                        <button id="invite-family-btn" class="btn btn-primary form-full">
-                            <i class="fas fa-paper-plane"></i> Enviar Convite
-                        </button>
-                    </div>
-
-                    <div id="family-success" class="alert alert-success hidden"></div>
-                    <div id="family-error" class="alert alert-error hidden"></div>
-                </div>
-
-                <div class="card">
-                    <h3 class="card-title">Membros da Família</h3>
-                    <div id="family-members-list">
-                        <div class="empty-state">
-                            <i class="fas fa-users"></i>
-                            <p>Nenhum membro adicionado ainda</p>
-                            <p style="font-size: 14px; margin-top: 8px;">Convide membros da família para compartilhar finanças</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <h3 class="card-title">
-                        <i class="fas fa-chart-pie"></i> Gastos por Membro
-                    </h3>
-                    <canvas id="family-expenses-chart"></canvas>
-                </div>
-            </div>
-
             <!-- Bills Page -->
             <div id="bills-page" class="content-page hidden">
-                <h2 class="page-title">
-                    <i class="fas fa-file-invoice-dollar"></i> Contas Mensais
-                </h2>
+                <h2 class="page-title"><i class="fas fa-file-invoice-dollar"></i> Contas Mensais</h2>
 
                 <div class="card">
                     <h3 class="card-title">Adicionar Conta Mensal</h3>
@@ -723,32 +694,26 @@
                                 <option value="Outros">Outros</option>
                             </select>
                         </div>
-
                         <div class="form-group">
                             <label>Valor Médio *</label>
                             <input type="number" id="bill-amount" step="0.01" placeholder="0.00" required>
                         </div>
-
                         <div class="form-group">
                             <label>Dia de Vencimento *</label>
                             <input type="number" id="bill-due-day" min="1" max="31" placeholder="Ex: 10" required>
                         </div>
-
                         <div class="form-group">
                             <label>Observações</label>
                             <input type="text" id="bill-notes" placeholder="Informações adicionais">
                         </div>
-
                         <div id="bill-error" class="alert alert-error hidden form-full"></div>
                         <div id="bill-success" class="alert alert-success hidden form-full"></div>
-
                         <button type="submit" class="btn btn-primary form-full">
                             <i class="fas fa-plus"></i> Adicionar Conta
                         </button>
                     </form>
                 </div>
 
-                <!-- Resumo de Contas -->
                 <div class="card">
                     <h3 class="card-title">Total de Contas Mensais</h3>
                     <div class="investment-summary">
@@ -763,31 +728,24 @@
                     </div>
                 </div>
 
-                <!-- Lista de Contas -->
                 <div class="card">
                     <h3 class="card-title">Minhas Contas Mensais</h3>
                     <div id="bills-list"></div>
                 </div>
 
-                <!-- Calendário de Vencimentos -->
                 <div class="card">
                     <h3 class="card-title">Vencimentos deste Mês</h3>
                     <div id="bills-calendar"></div>
                 </div>
             </div>
 
-            <!-- Settings Page com App Mobile -->
+            <!-- Settings Page -->
             <div id="settings-page" class="content-page hidden">
-                <h2 class="page-title">
-                    <i class="fas fa-cog"></i> Configurações
-                </h2>
+                <h2 class="page-title"><i class="fas fa-cog"></i> Configurações</h2>
 
                 <!-- Tema -->
                 <div class="card">
-                    <h3 class="card-title">
-                        <i class="fas fa-palette"></i> Aparência
-                    </h3>
-                    
+                    <h3 class="card-title"><i class="fas fa-palette"></i> Aparência</h3>
                     <div class="theme-selector">
                         <button class="theme-option active" data-theme="light">
                             <i class="fas fa-sun"></i>
@@ -804,35 +762,9 @@
                     </div>
                 </div>
 
-                <!-- App Mobile -->
-                <div class="card">
-                    <h3 class="card-title">
-                        <i class="fas fa-mobile-alt"></i> App Mobile
-                    </h3>
-                    
-                    <div class="mobile-app-section">
-                        <div class="mobile-app-preview">
-                            <img src="logo-fincontrol.png" alt="FinControl Pro" style="width: 128px; height: 128px; object-fit: contain; border-radius: 24px; margin-bottom: 16px; box-shadow: 0 8px 24px rgba(30, 58, 138, 0.2);">
-                            <h4 style="margin-top: 16px; font-size: 20px; font-weight: 700;">FinControl Pro Mobile</h4>
-                            <p style="color: var(--gray-600); margin-top: 8px;">Acesse suas finanças de qualquer lugar</p>
-                        </div>
-
-                        <button id="install-pwa-btn" class="btn btn-primary" style="width: 100%; margin-top: 24px;">
-                            <i class="fas fa-download"></i> Instalar App no Dispositivo
-                        </button>
-
-                        <p style="text-align: center; color: var(--gray-500); font-size: 12px; margin-top: 16px;">
-                            Disponível para Android, iOS, Windows, Mac e Linux
-                        </p>
-                    </div>
-                </div>
-
                 <!-- Categorias -->
                 <div class="card">
-                    <h3 class="card-title">
-                        <i class="fas fa-tags"></i> Gerenciar Categorias
-                    </h3>
-                    
+                    <h3 class="card-title"><i class="fas fa-tags"></i> Gerenciar Categorias</h3>
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Nova Categoria</label>
@@ -849,21 +781,16 @@
                             <i class="fas fa-plus"></i> Adicionar Categoria
                         </button>
                     </div>
-
                     <div id="categories-success" class="alert alert-success hidden"></div>
-
                     <div style="margin-top: 24px;">
                         <h4 style="font-weight: 600; margin-bottom: 16px;">Categorias Ativas</h4>
                         <div id="categories-list"></div>
                     </div>
                 </div>
 
-                <!-- Backup e Dados -->
+                <!-- Backup -->
                 <div class="card">
-                    <h3 class="card-title">
-                        <i class="fas fa-cloud"></i> Backup e Dados
-                    </h3>
-                    
+                    <h3 class="card-title"><i class="fas fa-cloud"></i> Backup e Dados</h3>
                     <div class="settings-section">
                         <div class="settings-item">
                             <div>
@@ -874,7 +801,6 @@
                                 <i class="fas fa-download"></i> Exportar Backup
                             </button>
                         </div>
-
                         <div class="settings-item">
                             <div>
                                 <h4>Importar dados</h4>
@@ -885,7 +811,6 @@
                                 <input type="file" id="restore-btn" accept=".json" style="display: none;">
                             </label>
                         </div>
-
                         <div class="settings-item" style="border-top: 2px solid var(--gray-200); padding-top: 24px; margin-top: 24px;">
                             <div>
                                 <h4 style="color: var(--danger);">Limpar todos os dados</h4>
@@ -896,81 +821,13 @@
                             </button>
                         </div>
                     </div>
-
                     <div id="backup-success" class="alert alert-success hidden"></div>
                     <div id="backup-error" class="alert alert-error hidden"></div>
-                </div>
-
-                <!-- Contribuir com o Projeto -->
-                <div class="card">
-                    <h3 class="card-title">
-                        <i class="fas fa-heart"></i> Apoie o Projeto
-                    </h3>
-                    
-                    <div class="contribution-section">
-                        <div class="contribution-message">
-                            <i class="fas fa-coffee" style="font-size: 48px; color: var(--primary); margin-bottom: 16px;"></i>
-                            <h4 style="font-size: 20px; font-weight: 700; margin-bottom: 12px;">Gostou do FinControl Pro?</h4>
-                            <p style="color: var(--text-secondary); line-height: 1.6;">
-                                Se este projeto está te ajudando a organizar suas finanças, considere fazer uma contribuição! 
-                                Seu apoio ajuda a manter o desenvolvimento e trazer novas funcionalidades.
-                            </p>
-                        </div>
-
-                        <div class="pix-section">
-                            <h4 style="font-weight: 600; margin-bottom: 16px; text-align: center;">
-                                <i class="fas fa-qrcode"></i> PIX para Contribuir
-                            </h4>
-                            
-                            <div class="pix-qrcode">
-                                <div id="qrcode-container" style="background: white; padding: 20px; border-radius: 12px; display: inline-block;">
-                                    <!-- QR Code será gerado aqui -->
-                                    <img src="qrcode-pix.png" alt="QR Code PIX" style="width: 200px; height: 200px; border-radius: 8px;">
-                                </div>
-                            </div>
-
-                            <div class="pix-key">
-                                <label style="display: block; font-weight: 600; margin-bottom: 8px;">Chave PIX (Copiar e Colar):</label>
-                                <div class="pix-copy-container">
-                                    <input type="text" id="pix-key" value="00020126360014BR.GOV.BCB.PIX0114+55169921898625204000053039865802BR5901N6001C62180514PGTOFINCONTROL6304A14C" readonly style="flex: 1; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px 0 0 8px; font-family: monospace;">
-                                    <button id="copy-pix-btn" class="btn-copy-pix">
-                                        <i class="fas fa-copy"></i> Copiar
-                                    </button>
-                                </div>
-                                <p id="copy-feedback" class="copy-feedback hidden">
-                                    <i class="fas fa-check-circle"></i> Chave PIX copiada!
-                                </p>
-                            </div>
-
-                            <div class="contribution-values">
-                                <p style="text-align: center; color: var(--text-secondary); margin-bottom: 12px; font-size: 14px;">
-                                    Sugestão de valores:
-                                </p>
-                                <div class="value-buttons">
-                                    <button class="value-btn">R$ 5,00</button>
-                                    <button class="value-btn">R$ 10,00</button>
-                                    <button class="value-btn">R$ 20,00</button>
-                                    <button class="value-btn">R$ 50,00</button>
-                                </div>
-                                <p style="text-align: center; color: var(--text-secondary); margin-top: 12px; font-size: 12px;">
-                                    Ou qualquer valor que desejar ❤️
-                                </p>
-                            </div>
-                        </div>
-
-                        <div class="contribution-thanks">
-                            <i class="fas fa-handshake" style="font-size: 32px; color: var(--success); margin-bottom: 12px;"></i>
-                            <p style="color: var(--text-secondary); font-size: 14px;">
-                                <strong>Muito obrigado pelo seu apoio!</strong><br>
-                                Cada contribuição faz diferença e motiva o desenvolvimento contínuo.
-                            </p>
-                        </div>
-                    </div>
                 </div>
             </div>
         </main>
 
-        <!-- Footer Profissional -->
+        <!-- Footer -->
         <footer class="footer">
             <div class="footer-container">
                 <div class="footer-about">
@@ -999,7 +856,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="footer-links">
                     <div class="footer-column">
                         <h4>Legal</h4>
@@ -1008,7 +864,6 @@
                             <li><a href="#" onclick="showPrivacy(); return false;">Política de Privacidade</a></li>
                         </ul>
                     </div>
-
                     <div class="footer-column">
                         <h4>Suporte</h4>
                         <ul>
@@ -1017,7 +872,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="footer-bottom">
                 <p>&copy; 2025 FinControl Pro. Todos os direitos reservados.</p>
                 <p class="footer-dev">Desenvolvido por <strong>FELIPE ANDRADE DEV</strong></p>
@@ -1025,7 +879,13 @@
         </footer>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <!-- Notification Container -->
+    <div id="notification-container" class="notification-container"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -1080,30 +940,6 @@
                 navbar.classList.remove('menu-open');
             }
         });
-
-        // PIX Copy functionality
-        document.getElementById('copy-pix-btn')?.addEventListener('click', function() {
-            const pixKey = document.getElementById('pix-key');
-            const feedback = document.getElementById('copy-feedback');
-            
-            pixKey.select();
-            pixKey.setSelectionRange(0, 99999);
-            
-            navigator.clipboard.writeText(pixKey.value).then(() => {
-                feedback.classList.remove('hidden');
-                setTimeout(() => {
-                    feedback.classList.add('hidden');
-                }, 3000);
-            });
-        });
     </script>
-    <!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
-<!-- jsPDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
-<!-- SheetJS -->
-<script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 </body>
 </html>
