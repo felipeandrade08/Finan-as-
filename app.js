@@ -526,8 +526,10 @@ function updateTransactionsList() {
                     <small>${formatDate(t.date)}</small>
                 </div>
             </div>
-            <div class="transaction-amount ${t.type}">
-                ${t.type === 'income' ? '+' : '-'} R$ ${t.amount.toFixed(2)}
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                <div class="transaction-amount ${t.type}">
+                    ${t.type === 'income' ? '+' : '-'} R$ ${t.amount.toFixed(2)}
+                </div>
             </div>
         </div>
     `).join('');
@@ -591,13 +593,13 @@ function updateRecentTransactions() {
     }
     
     container.innerHTML = transactions.map(t => `
-        <div class="transaction-item" style="margin-bottom: 8px;">
+        <div class="transaction-item" style="margin-bottom: 12px;">
             <div class="transaction-info">
                 <div class="transaction-icon ${t.type}">
                     <i class="fas fa-arrow-${t.type === 'income' ? 'up' : 'down'}"></i>
                 </div>
                 <div class="transaction-details">
-                    <h4 style="font-size: 14px;">${t.category}</h4>
+                    <h4 style="font-size: 14px; font-weight: 700;">${t.category}</h4>
                     <small>${formatDate(t.date)}</small>
                 </div>
             </div>
