@@ -298,8 +298,13 @@ function getFirebaseErrorMessage(errorCode) {
         'auth/weak-password': 'Senha muito fraca (mínimo 8 caracteres)',
         'auth/user-not-found': 'Usuário não encontrado',
         'auth/wrong-password': 'Senha incorreta',
-        'auth/too-many-requests': 'Muitas tentativas. Tente novamente mais tarde',
-        'auth/network-request-failed': 'Erro de conexão. Verifique sua internet'
+        // Firebase Auth can return invalid-credential for either an unknown email or a wrong password.
+        'auth/invalid-credential': 'E-mail ou senha incorretos. Confira os dados e tente novamente.',
+        'auth/invalid-login-credentials': 'E-mail ou senha incorretos. Confira os dados e tente novamente.',
+        'auth/user-disabled': 'Esta conta está desativada. Entre em contato com o suporte.',
+        'auth/operation-not-allowed': 'O login por e-mail e senha não está habilitado no Firebase.',
+        'auth/too-many-requests': 'Muitas tentativas. Aguarde um pouco e tente novamente.',
+        'auth/network-request-failed': 'Erro de conexão. Verifique sua internet.'
     };
     
     return errors[errorCode] || 'Erro desconhecido. Tente novamente';
