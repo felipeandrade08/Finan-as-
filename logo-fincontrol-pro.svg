@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 420" role="img" aria-labelledby="title desc">
+<title id="title">FinControl PRO</title><desc id="desc">Logo FinControl PRO em ciano e azul sobre fundo transparente, com o slogan Sua viagem. Seu controle.</desc>
+<defs>
+ <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#28e6f6"/><stop offset=".55" stop-color="#08bfe9"/><stop offset="1" stop-color="#087ce2"/></linearGradient>
+ <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#53c9f4"/><stop offset="1" stop-color="#14577e"/></linearGradient>
+ <linearGradient id="white" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#d9e8f6"/></linearGradient>
+</defs>
+<g transform="translate(355 14) scale(.62)">
+ <path d="M118 357 191 167Q199 145 224 145H383L338 192H241L182 348Q177 365 159 365H124Z" fill="url(#cyan)"/>
+ <path d="M213 367 264 258Q272 240 292 240H356Q390 240 405 213Q419 188 402 165Q390 148 366 148H324L369 102H379Q438 102 464 151Q488 198 463 246Q438 292 383 292H312L279 362Q273 376 257 376H218Z" fill="url(#steel)"/>
+ <path d="M245 207H310L285 233H232Z" fill="#071521"/>
+ <g fill="#16d9f2"><path d="M322 225v-19q0-4 4-5l17-6v30z"/><path d="M350 225v-33q0-4 4-5l17-6v44z"/><path d="M378 225v-47q0-4 4-5l17-6v58z"/></g>
+</g>
+<text x="500" y="300" text-anchor="middle" font-family="Inter, Montserrat, Arial, sans-serif" font-size="104" font-weight="800" letter-spacing="-4" fill="url(#white)">FinControl<tspan fill="#08cce9">PRO</tspan></text>
+<g stroke="#08cce9" stroke-width="3"><path d="M75 354H168"/><path d="M832 354H925"/></g>
+<text x="500" y="365" text-anchor="middle" font-family="Inter, Montserrat, Arial, sans-serif" font-size="27" font-weight="500" letter-spacing="10" fill="#8ab9dc">SUA VIAGEM. SEU CONTROLE.</text>
+</svg>
