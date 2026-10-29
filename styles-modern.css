@@ -15,13 +15,13 @@
 }
 
 :root {
-  /* Brand Colors */
-  --blue-900: #0f1e45;
-  --blue-800: #1e3a8a;
-  --blue-700: #1d4ed8;
-  --blue-600: #2563eb;
-  --blue-400: #60a5fa;
-  --blue-100: #dbeafe;
+  /* Brand Colors — FinControlPro Tech Cyan */
+  --blue-900: #0b202a;
+  --blue-800: #123b4a;
+  --blue-700: #087e9a;
+  --blue-600: #06b6d4;
+  --blue-400: #67e8f9;
+  --blue-100: #cffafe;
 
   --green-700: #15803d;
   --green-600: #16a34a;
@@ -107,14 +107,17 @@
 
 /* Dark theme */
 html.dark-theme, body.dark-theme {
-  --bg:          var(--gray-900);
-  --surface:     var(--gray-800);
-  --surface-alt: var(--gray-700);
-  --border:      var(--gray-700);
-  --text:        #f1f5f9;
-  --text-muted:  var(--gray-400);
-  --text-faint:  var(--gray-500);
+  --bg:          #0d151c;
+  --surface:     #15232d;
+  --surface-alt: #203541;
+  --border:      #2a414e;
+  --text:        #f1f8fb;
+  --text-muted:  #a5bac5;
+  --text-faint:  #78909d;
 }
+
+html.light-theme { color-scheme: light; }
+html.dark-theme { color-scheme: dark; }
 
 html, body {
   height: 100%;
