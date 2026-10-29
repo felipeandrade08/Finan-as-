@@ -583,7 +583,9 @@ body {
    APP SHELL — SIDEBAR LAYOUT
    ============================================================ */
 #main-app {
-  display: flex;
+  /* The sidebar and topbar are fixed-position elements. Keep the page content
+     and footer in normal vertical flow so they occupy the full available width. */
+  display: block;
   min-height: 100vh;
 }
 
