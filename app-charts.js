@@ -61,14 +61,14 @@ function updateEvolutionChart() {
                 {
                     label: 'Saldo',
                     data: monthsData.balance,
-                    borderColor: '#1e3a8a',
-                    backgroundColor: 'rgba(30, 58, 138, 0.1)',
+                    borderColor: '#06b6d4',
+                    backgroundColor: 'rgba(6, 182, 212, 0.12)',
                     borderWidth: 3,
                     fill: true,
                     tension: 0.4,
                     pointRadius: 6,
                     pointHoverRadius: 8,
-                    pointBackgroundColor: '#1e3a8a',
+                    pointBackgroundColor: '#06b6d4',
                     pointBorderColor: '#fff',
                     pointBorderWidth: 2
                 }
@@ -350,14 +350,14 @@ function updateCashFlowChart() {
             datasets: [{
                 label: 'Fluxo de Caixa Acumulado',
                 data: cashFlowData,
-                borderColor: '#1e3a8a',
-                backgroundColor: 'rgba(30, 58, 138, 0.2)',
+                borderColor: '#06b6d4',
+                backgroundColor: 'rgba(6, 182, 212, 0.2)',
                 borderWidth: 3,
                 fill: true,
                 tension: 0.4,
                 pointRadius: 7,
                 pointHoverRadius: 9,
-                pointBackgroundColor: '#1e3a8a',
+                pointBackgroundColor: '#06b6d4',
                 pointBorderColor: '#fff',
                 pointBorderWidth: 3
             }]

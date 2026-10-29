@@ -4,8 +4,8 @@
   "description": "Sistema completo de gestão financeira pessoal",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#111827",
-  "theme_color": "#2563eb",
+  "background_color": "#0d151c",
+  "theme_color": "#06b6d4",
   "orientation": "portrait-primary",
   "icons": [
     {

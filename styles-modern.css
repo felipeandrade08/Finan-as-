@@ -15,13 +15,13 @@
 }
 
 :root {
-  /* Brand Colors */
-  --blue-900: #0f1e45;
-  --blue-800: #1e3a8a;
-  --blue-700: #1d4ed8;
-  --blue-600: #2563eb;
-  --blue-400: #60a5fa;
-  --blue-100: #dbeafe;
+  /* Brand Colors — FinControlPro Tech Cyan */
+  --blue-900: #0b202a;
+  --blue-800: #123b4a;
+  --blue-700: #087e9a;
+  --blue-600: #06b6d4;
+  --blue-400: #67e8f9;
+  --blue-100: #cffafe;
 
   --green-700: #15803d;
   --green-600: #16a34a;
@@ -107,14 +107,17 @@
 
 /* Dark theme */
 html.dark-theme, body.dark-theme {
-  --bg:          var(--gray-900);
-  --surface:     var(--gray-800);
-  --surface-alt: var(--gray-700);
-  --border:      var(--gray-700);
-  --text:        #f1f5f9;
-  --text-muted:  var(--gray-400);
-  --text-faint:  var(--gray-500);
+  --bg:          #0d151c;
+  --surface:     #15232d;
+  --surface-alt: #203541;
+  --border:      #2a414e;
+  --text:        #f1f8fb;
+  --text-muted:  #a5bac5;
+  --text-faint:  #78909d;
 }
+
+html.light-theme { color-scheme: light; }
+html.dark-theme { color-scheme: dark; }
 
 html, body {
   height: 100%;
@@ -251,7 +254,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 12px 32px rgba(30,58,138,.3);
+  box-shadow: 0 12px 32px rgba(6,182,212,.24);
 }
 
 .app-icon img {
@@ -314,7 +317,7 @@ body {
 .form-group select:focus,
 .form-group textarea:focus {
   border-color: var(--blue-600);
-  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+  box-shadow: 0 0 0 3px rgba(6,182,212,.16);
 }
 
 .form-group textarea {
@@ -420,10 +423,10 @@ body {
 .btn-primary {
   background: var(--grad-brand);
   color: white;
-  box-shadow: 0 2px 8px rgba(30,58,138,.25);
+  box-shadow: 0 2px 8px rgba(6,182,212,.22);
 }
 .btn-primary:hover {
-  box-shadow: 0 4px 16px rgba(30,58,138,.35);
+  box-shadow: 0 4px 16px rgba(6,182,212,.28);
   transform: translateY(-1px);
 }
 
@@ -1857,7 +1860,7 @@ body {
    SELECTION
    ============================================================ */
 ::selection {
-  background: rgba(37,99,235,.15);
+  background: rgba(6,182,212,.15);
   color: var(--blue-800);
 }
 
@@ -1873,4 +1876,59 @@ html.dark-theme .notification,
 body.dark-theme  .notification {
   background: var(--gray-800);
   border-color: var(--gray-700);
+}
+
+
+/* ============================================================
+   FINCONTROL PRO — REFINAMENTO VISUAL SEGURO
+   Etapa 2: estados de interação e acabamento dos componentes
+   ============================================================ */
+
+/* Foco visível consistente para teclado e acessibilidade */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid rgba(6, 182, 212, .72);
+  outline-offset: 3px;
+}
+
+/* Campos usam o mesmo halo ciano da identidade visual */
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus,
+.select-filter:focus {
+  border-color: var(--blue-600);
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, .16);
+}
+
+/* Cartões com profundidade discreta, sem alterar o layout */
+.card {
+  box-shadow: 0 2px 10px rgba(11, 32, 42, .035);
+}
+
+.card:hover {
+  border-color: rgba(6, 182, 212, .28);
+  box-shadow: 0 8px 24px rgba(11, 32, 42, .07);
+}
+
+.summary-card {
+  box-shadow: 0 8px 22px rgba(11, 32, 42, .10);
+}
+
+.btn-primary {
+  box-shadow: 0 3px 10px rgba(6, 182, 212, .22);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 7px 18px rgba(6, 182, 212, .28);
+}
+
+/* Respeita a preferência do usuário por menos movimento */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
 }
