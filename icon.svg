@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="FinControl Pro">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071521"/>
+      <stop offset="1" stop-color="#0d2738"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#28e6f6"/>
+      <stop offset="0.55" stop-color="#08bfe9"/>
+      <stop offset="1" stop-color="#087ce2"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#53c9f4"/>
+      <stop offset="1" stop-color="#14577e"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="100" fill="url(#bg)"/>
+  <rect x="18" y="18" width="476" height="476" rx="84" fill="none" stroke="#1b526a" stroke-opacity=".55" stroke-width="3"/>
+  <path d="M118 357 191 167Q199 145 224 145H383L338 192H241L182 348Q177 365 159 365H124Z" fill="url(#cyan)"/>
+  <path d="M213 367 264 258Q272 240 292 240H356Q390 240 405 213Q419 188 402 165Q390 148 366 148H324L369 102H379Q438 102 464 151Q488 198 463 246Q438 292 383 292H312L279 362Q273 376 257 376H218Z" fill="url(#steel)"/>
+  <path d="M245 207H310L285 233H232Z" fill="#0a2435" opacity=".95"/>
+  <g fill="#1de4f4">
+    <path d="M322 225v-19q0-4 4-5l17-6v30z"/>
+    <path d="M350 225v-33q0-4 4-5l17-6v44z"/>
+    <path d="M378 225v-47q0-4 4-5l17-6v58z"/>
+  </g>
+</svg>
