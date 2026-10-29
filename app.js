@@ -1684,4 +1684,23 @@ function toggleTheme() {
     applyTheme(newTheme);
 }
 
+// Keep the automatic theme synchronized when the operating system preference changes.
+(function syncSystemThemePreference() {
+    if (!window.matchMedia) return;
+
+    const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const syncTheme = () => {
+        if (localStorage.getItem('fincontrol-theme') === 'auto') {
+            applyTheme('auto');
+        }
+    };
+
+    if (typeof colorSchemeQuery.addEventListener === 'function') {
+        colorSchemeQuery.addEventListener('change', syncTheme);
+    } else if (typeof colorSchemeQuery.addListener === 'function') {
+        // Compatibility with older browsers.
+        colorSchemeQuery.addListener(syncTheme);
+    }
+})();
+
 console.log('✅ FinControl Pro v4.0 carregado!');
