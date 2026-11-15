@@ -31,6 +31,7 @@ const DEFAULT_CATEGORIES = [
 ];
 
 let currentFilter = 'month';
+let transactionsLimit = 30;
 
 const INVESTMENT_TYPES = {
     'acoes': 'Ações', 'fundos': 'Fundos', 'renda-fixa': 'Renda Fixa', 'tesouro': 'Tesouro Direto',
@@ -143,6 +144,23 @@ function setupEventListeners() {
         });
     });
 
+    // Barra de abas do celular
+    document.querySelectorAll('.tab-item[data-page]').forEach(btn => {
+        btn.addEventListener('click', () => navigateTo(btn.dataset.page));
+    });
+    document.getElementById('tab-add')?.addEventListener('click', openNewTransaction);
+    document.getElementById('tab-more')?.addEventListener('click', () => {
+        if (typeof openMenu === 'function') openMenu();
+    });
+
+    // Botões dentro de listas vazias ("Fazer o primeiro lançamento" etc.)
+    document.addEventListener('click', (e) => {
+        const target = e.target.closest('[data-goto]');
+        if (!target) return;
+        if (target.dataset.goto === 'transactions') openNewTransaction();
+        else navigateTo(target.dataset.goto);
+    });
+
     document.querySelectorAll('.link-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const page = e.currentTarget.dataset.page;
@@ -174,6 +192,7 @@ function setupEventListeners() {
     document.getElementById('backup-btn')?.addEventListener('click', handleBackup);
     document.getElementById('restore-btn')?.addEventListener('change', handleRestore);
     setupTransactionFilters();
+    setupCollapsibleForms();
     document.getElementById('clear-data-btn')?.addEventListener('click', handleClearData);
 
     // Theme toggle
@@ -224,6 +243,49 @@ function setupEventListeners() {
             strengthText.textContent = strength.text;
         });
     }
+}
+
+// No celular, os formulários "Novo..." começam recolhidos para a lista aparecer primeiro.
+const mobileQuery = window.matchMedia('(max-width: 900px)');
+
+function setupCollapsibleForms() {
+    document.querySelectorAll('.card > form.form-grid').forEach(form => {
+        const card = form.parentElement;
+        const title = card.querySelector('.card-title');
+        if (!title || card.querySelector('.form-toggle')) return;
+        card.classList.add('form-card');
+        form.id ||= `form-${Math.random().toString(36).slice(2)}`;
+
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'form-toggle';
+        toggle.setAttribute('aria-controls', form.id);
+        toggle.innerHTML = '<span class="form-toggle-text"></span><i class="fas fa-plus" aria-hidden="true"></i>';
+        toggle.querySelector('.form-toggle-text').textContent = title.textContent.trim();
+        toggle.addEventListener('click', () => setFormExpanded(card, card.classList.contains('is-collapsed')));
+        title.after(toggle);
+        setFormExpanded(card, !mobileQuery.matches);
+    });
+    mobileQuery.addEventListener?.('change', () => {
+        document.querySelectorAll('.form-card').forEach(card => setFormExpanded(card, !mobileQuery.matches));
+    });
+}
+
+function setFormExpanded(card, expanded) {
+    if (!card?.classList.contains('form-card')) return;
+    card.classList.toggle('is-collapsed', !expanded);
+    card.querySelector('.form-toggle')?.setAttribute('aria-expanded', String(expanded));
+}
+
+// Abre Lançamentos com o formulário pronto para um novo registro.
+function openNewTransaction() {
+    navigateTo('transactions');
+    const form = document.getElementById('transaction-form');
+    setFormExpanded(form?.closest('.card'), true);
+    form?.closest('.card')?.scrollIntoView({ block: 'start' });
+    document.getElementById('transaction-type')?.focus({ preventScroll: true });
+    const date = document.getElementById('transaction-date');
+    if (date && !date.value) date.value = todayISO();
 }
 
 // ========== FIREBASE AUTH ==========
@@ -489,12 +551,16 @@ function navigateTo(page) {
         pagEl.classList.remove('hidden');
     }
     
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.remove('active');
-        if (item.dataset.page === page) {
-            item.classList.add('active');
+    document.querySelectorAll('.nav-item, .tab-item').forEach(item => {
+        const isActive = item.dataset.page === page;
+        item.classList.toggle('active', isActive);
+        if (item.dataset.page) {
+            if (isActive) item.setAttribute('aria-current', 'page');
+            else item.removeAttribute('aria-current');
         }
     });
+    if (typeof closeMenu === 'function') closeMenu();
+    window.scrollTo({ top: 0 });
 
     switch(page) {
         case 'dashboard':
@@ -560,6 +626,9 @@ function updateTransactionsList() {
     
     updateFilterCategoryOptions();
     const transactions = applyTransactionFilters(DB.transactions);
+    const filtersActive = ['filter-search', 'filter-type', 'filter-category', 'filter-month']
+        .some(id => document.getElementById(id)?.value);
+    document.getElementById('filter-clear')?.classList.toggle('hidden', !filtersActive);
     const summary = document.getElementById('transactions-summary');
 
     if (DB.transactions.length === 0) {
@@ -578,9 +647,9 @@ function updateTransactionsList() {
         const expense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
         summary.innerHTML = `
             <span>${transactions.length} lançamento(s)</span>
-            <span class="income">Receitas: ${formatCurrency(income)}</span>
-            <span class="expense">Despesas: ${formatCurrency(expense)}</span>
-            <span>Saldo: ${formatCurrency(income - expense)}</span>`;
+            <span class="income">Entrou ${formatCurrency(income)}</span>
+            <span class="expense">Saiu ${formatCurrency(expense)}</span>
+            <span>Resultado ${formatCurrency(income - expense)}</span>`;
     }
 
     if (transactions.length === 0) {
@@ -593,19 +662,23 @@ function updateTransactionsList() {
         return;
     }
 
-    container.innerHTML = sortByDate(transactions).reverse().map(t => `
+    // Mostra 30 por vez; "Mostrar mais" carrega o resto aos poucos.
+    const ordered = sortByDate(transactions).reverse();
+    const visible = ordered.slice(0, transactionsLimit);
+
+    container.innerHTML = visible.map(t => `
         <div class="transaction-item">
             <div class="transaction-info">
                 <div class="transaction-icon ${t.type}">
                     <i class="fas fa-arrow-${t.type === 'income' ? 'up' : 'down'}"></i>
                 </div>
                 <div class="transaction-details">
-                    <h4>${escapeHTML(t.category)}</h4>
-                    <p>${escapeHTML(t.description || 'Sem descrição')}</p>
+                    <h4>${escapeHTML(t.description || t.category)}</h4>
+                    <p>${escapeHTML(t.category)}</p>
                     <small>${formatDate(t.date)}</small>
                 </div>
             </div>
-            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+            <div class="item-end">
                 <div class="transaction-amount ${t.type}">
                     ${t.type === 'income' ? '+' : '-'} ${formatCurrency(t.amount)}
                 </div>
@@ -613,6 +686,19 @@ function updateTransactionsList() {
             </div>
         </div>
     `).join('');
+
+    if (ordered.length > visible.length) {
+        container.insertAdjacentHTML('beforeend', `
+            <div class="list-more">
+                <button type="button" class="btn btn-ghost" id="transactions-more">
+                    Mostrar mais (${ordered.length - visible.length} restantes)
+                </button>
+            </div>`);
+        document.getElementById('transactions-more').addEventListener('click', () => {
+            transactionsLimit += 30;
+            updateTransactionsList();
+        });
+    }
 }
 
 // ---------- Filtros do histórico ----------
@@ -655,7 +741,10 @@ function updateFilterCategoryOptions() {
 function setupTransactionFilters() {
     ['filter-search', 'filter-type', 'filter-category', 'filter-month'].forEach(id => {
         const el = document.getElementById(id);
-        el?.addEventListener(el.tagName === 'INPUT' && el.type === 'search' ? 'input' : 'change', updateTransactionsList);
+        el?.addEventListener(el.tagName === 'INPUT' && el.type === 'search' ? 'input' : 'change', () => {
+            transactionsLimit = 30;
+            updateTransactionsList();
+        });
     });
     document.getElementById('filter-clear')?.addEventListener('click', () => {
         ['filter-search', 'filter-type', 'filter-category', 'filter-month'].forEach(id => {
@@ -669,76 +758,133 @@ function setupTransactionFilters() {
 // ========== DASHBOARD ==========
 function updateDashboard() {
     const totals = calculateTotals();
-    
-    document.getElementById('total-income').textContent = `${formatCurrency(totals.income)}`;
-    document.getElementById('total-expense').textContent = `${formatCurrency(totals.expense)}`;
-    document.getElementById('total-balance').textContent = `${formatCurrency(totals.balance)}`;
-    
-    const total = totals.income + totals.expense;
-    document.getElementById('income-percentage').textContent = 
-        `${((totals.income / total) * 100 || 0).toFixed(1)}% do total`;
-    document.getElementById('expense-percentage').textContent = 
-        `${((totals.expense / total) * 100 || 0).toFixed(1)}% do total`;
-    document.getElementById('balance-status').textContent = 
-        totals.balance >= 0 ? 'Situação positiva' : 'Atenção necessária';
-    
-    const balanceCard = document.querySelector('.balance-card');
-    if (balanceCard) {
-        if (totals.balance < 0) {
-            balanceCard.classList.add('negative');
-        } else {
-            balanceCard.classList.remove('negative');
-        }
+    const period = getPeriodInfo();
+    const negative = totals.balance < 0;
+
+    // Destaque: quanto sobrou (ou faltou) no período escolhido.
+    const label = document.getElementById('hero-label');
+    if (label) label.textContent = `${negative ? 'Faltou' : 'Sobrou'} ${period.phrase}`;
+
+    const amount = document.getElementById('total-balance');
+    // "R$" menor que o número, para o valor ser o que se lê primeiro.
+    const [symbol, number] = formatCurrency(Math.abs(totals.balance)).split(/\s/);
+    amount.innerHTML = `<span class="hero-currency">${symbol}</span>${number}`;
+    amount.classList.toggle('is-negative', negative);
+
+    document.getElementById('total-income').textContent = formatCurrency(totals.income);
+    document.getElementById('total-expense').textContent = formatCurrency(totals.expense);
+
+    const spentRatio = totals.income > 0 ? totals.expense / totals.income : (totals.expense > 0 ? 1 : 0);
+    document.getElementById('expense-percentage').textContent =
+        totals.income > 0 ? `${Math.round(spentRatio * 100)}% do que entrou já saiu`
+        : totals.expense > 0 ? 'Nenhuma entrada registrada no período'
+        : 'Nenhum lançamento no período';
+
+    const bar = document.getElementById('hero-bar');
+    const spent = document.getElementById('hero-bar-spent');
+    if (bar && spent) {
+        spent.style.width = `${Math.min(spentRatio, 1) * 100}%`;
+        bar.classList.toggle('is-over', spentRatio > 1);
+        bar.classList.toggle('is-empty', totals.income === 0 && totals.expense === 0);
+        bar.setAttribute('aria-label', totals.income === 0 && totals.expense === 0
+            ? 'Sem lançamentos no período'
+            : `Saiu ${formatCurrency(totals.expense)} de ${formatCurrency(totals.income)} que entrou`);
     }
-    
+
+    updateCategoryBreakdown();
     updateRecentTransactions();
     updateGoalsPreview();
-    
-    // NOVO: Atualizar gráficos
+
     if (typeof updateAllCharts === 'function') {
         updateAllCharts();
     }
-    
-    // NOVO: Verificar notificações
+
     if (typeof runAllNotificationChecks === 'function') {
         runAllNotificationChecks();
     }
-    
+
     checkBillsAlerts();
+}
+
+// Texto do período atual ("este mês" vira "em novembro", etc.).
+function getPeriodInfo() {
+    const now = new Date();
+    switch (currentFilter) {
+        case 'week': return { phrase: 'nos últimos 7 dias' };
+        case 'month': return { phrase: `em ${now.toLocaleDateString('pt-BR', { month: 'long' })}` };
+        case 'year': return { phrase: `em ${now.getFullYear()}` };
+        default: return { phrase: 'desde o início' };
+    }
+}
+
+// Lista "Para onde foi o dinheiro": categorias de despesa do período, da maior para a menor.
+function updateCategoryBreakdown() {
+    const container = document.getElementById('category-breakdown');
+    if (!container) return;
+
+    const totals = {};
+    getFilteredTransactions()
+        .filter(t => t.type === 'expense')
+        .forEach(t => { totals[t.category] = (totals[t.category] || 0) + t.amount; });
+
+    const rows = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+    if (rows.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state compact">
+                <p>Nenhuma despesa neste período.</p>
+                <button class="btn btn-ghost btn-sm" type="button" data-goto="transactions">Lançar despesa</button>
+            </div>`;
+        return;
+    }
+
+    const total = rows.reduce((sum, [, v]) => sum + v, 0);
+    const top = rows.slice(0, 5);
+    const rest = rows.slice(5).reduce((sum, [, v]) => sum + v, 0);
+    if (rest > 0) top.push(['Outras', rest]);
+    const max = top[0][1];
+
+    container.innerHTML = `<ul class="breakdown">${top.map(([name, value]) => `
+        <li class="breakdown-row">
+            <div class="breakdown-head">
+                <span class="breakdown-name">${escapeHTML(name)}</span>
+                <span class="breakdown-value">${formatCurrency(value)}</span>
+            </div>
+            <div class="breakdown-track"><span style="width:${(value / max) * 100}%"></span></div>
+            <span class="breakdown-share">${Math.round((value / total) * 100)}% dos gastos</span>
+        </li>`).join('')}</ul>`;
 }
 
 function updateRecentTransactions() {
     const container = document.getElementById('recent-transactions');
     if (!container) return;
-    
-    const transactions = sortByDate(getFilteredTransactions()).slice(-6).reverse();
-    
+
+    const transactions = sortByDate(DB.transactions).slice(-6).reverse();
+
     if (transactions.length === 0) {
         container.innerHTML = `
-            <div class="empty-state" style="padding: 32px 0;">
-                <i class="fas fa-file-invoice" style="font-size: 48px;"></i>
-                <p style="font-size: 14px;">Nenhuma transação registrada</p>
-            </div>
-        `;
+            <div class="empty-state compact">
+                <p>Nenhum lançamento ainda.</p>
+                <button class="btn btn-ghost btn-sm" type="button" data-goto="transactions">Fazer o primeiro lançamento</button>
+            </div>`;
         return;
     }
-    
-    container.innerHTML = transactions.map(t => `
-        <div class="transaction-item" style="margin-bottom: 12px;">
-            <div class="transaction-info">
-                <div class="transaction-icon ${t.type}">
-                    <i class="fas fa-arrow-${t.type === 'income' ? 'up' : 'down'}"></i>
-                </div>
-                <div class="transaction-details">
-                    <h4 style="font-size: 14px; font-weight: 700;">${escapeHTML(t.category)}</h4>
-                    <small>${formatDate(t.date)}</small>
-                </div>
+
+    container.innerHTML = `<ul class="mini-list">${transactions.map(t => `
+        <li class="mini-row">
+            <span class="mini-dot ${t.type}" aria-hidden="true"></span>
+            <div class="mini-text">
+                <span class="mini-title">${escapeHTML(t.description || t.category)}</span>
+                <span class="mini-sub">${escapeHTML(t.category)}</span>
             </div>
-            <div class="transaction-amount ${t.type}" style="font-size: 16px;">
-                ${t.type === 'income' ? '+' : '-'} ${formatCurrency(t.amount)}
+            <div class="mini-end">
+                <span class="mini-amount ${t.type}">${t.type === 'income' ? '+' : '−'} ${formatCurrency(t.amount)}</span>
+                <span class="mini-sub">${formatShortDate(t.date)}</span>
             </div>
-        </div>
-    `).join('');
+        </li>`).join('')}</ul>`;
+}
+
+function formatShortDate(value) {
+    return parseLocalDate(value).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
 }
 
 function calculateTotals() {
@@ -751,23 +897,29 @@ function calculateTotals() {
 function getFilteredTransactions() {
     const transactions = DB.transactions;
     const now = new Date();
-    let startDate;
-    
-    switch(currentFilter) {
+    let start, end;
+
+    switch (currentFilter) {
         case 'week':
-            startDate = new Date(now.setDate(now.getDate() - 7));
+            start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+            end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             break;
         case 'month':
-            startDate = new Date(now.setMonth(now.getMonth() - 1));
+            start = new Date(now.getFullYear(), now.getMonth(), 1);
+            end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
             break;
         case 'year':
-            startDate = new Date(now.setFullYear(now.getFullYear() - 1));
+            start = new Date(now.getFullYear(), 0, 1);
+            end = new Date(now.getFullYear(), 11, 31);
             break;
         default:
             return transactions;
     }
-    
-    return transactions.filter(t => parseLocalDate(t.date) >= startDate);
+
+    return transactions.filter(t => {
+        const d = parseLocalDate(t.date);
+        return d >= start && d <= end;
+    });
 }
 
 // ========== ORÇAMENTOS ==========
@@ -914,37 +1066,38 @@ function updateGoalsList() {
 function updateGoalsPreview() {
     const container = document.getElementById('goals-preview');
     if (!container) return;
-    
-    const goals = DB.goals.slice(0, 3);
-    
+
+    // Metas em andamento primeiro, ordenadas pelo prazo.
+    const goals = DB.goals.slice()
+        .sort((a, b) => ((a.currentAmount >= a.targetAmount) - (b.currentAmount >= b.targetAmount)) ||
+            (parseLocalDate(a.deadline) - parseLocalDate(b.deadline)))
+        .slice(0, 3);
+
     if (goals.length === 0) {
         container.innerHTML = `
-            <div class="empty-state" style="padding: 32px 0;">
-                <i class="fas fa-bullseye" style="font-size: 48px;"></i>
-                <p style="font-size: 14px;">Nenhuma meta definida</p>
-            </div>
-        `;
+            <div class="empty-state compact">
+                <p>Nenhuma meta criada.</p>
+                <button class="btn btn-ghost btn-sm" type="button" data-goto="goals">Criar uma meta</button>
+            </div>`;
         return;
     }
 
-    container.innerHTML = goals.map(g => {
-        const percentage = (g.currentAmount / g.targetAmount) * 100;
-        
+    container.innerHTML = `<ul class="goal-mini-list">${goals.map(g => {
+        const pct = Math.min((g.currentAmount / g.targetAmount) * 100, 100) || 0;
+        const done = g.currentAmount >= g.targetAmount;
         return `
-            <div class="goal-item" style="margin-bottom: 12px;">
-                <div class="goal-header">
-                    <h4 class="goal-name" style="font-size: 16px;">${escapeHTML(g.name)}</h4>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill success" style="width: ${Math.min(percentage, 100)}%"></div>
-                </div>
-                <div class="goal-progress" style="margin-top: 8px;">
-                    <span style="font-size: 12px;">${formatCurrency(g.currentAmount)} / ${formatCurrency(g.targetAmount)}</span>
-                    <span class="goal-percentage" style="font-size: 14px;">${percentage.toFixed(0)}%</span>
-                </div>
+        <li class="goal-mini">
+            <div class="breakdown-head">
+                <span class="breakdown-name">${escapeHTML(g.name)}</span>
+                <span class="breakdown-value">${done ? 'Concluída' : `${Math.round(pct)}%`}</span>
             </div>
-        `;
-    }).join('');
+            <div class="progress-bar"><div class="progress-fill ${done ? 'done' : ''}" style="width:${pct}%"></div></div>
+            <div class="breakdown-foot">
+                <span>${formatCurrency(g.currentAmount)} de ${formatCurrency(g.targetAmount)}</span>
+                <span>até ${formatShortDate(g.deadline)}</span>
+            </div>
+        </li>`;
+    }).join('')}</ul>`;
 }
 
 // ========== INVESTIMENTOS ==========
@@ -998,6 +1151,8 @@ function updateInvestmentsList() {
     document.getElementById('total-profit').textContent = `${formatCurrency(totalProfit)}`;
     document.getElementById('total-return').textContent = formatPercent(totalReturn);
 
+    if (typeof updateAllCharts === 'function') updateAllCharts();
+
     container.innerHTML = DB.investments.map(inv => {
         const profit = inv.currentValue - inv.amount;
         const returnRate = ((profit / inv.amount) * 100) || 0;
@@ -1022,7 +1177,7 @@ function updateInvestmentsList() {
                     </div>
                     <div class="investment-detail">
                         <span class="investment-detail-label">Rendimento</span>
-                        <span class="investment-detail-value" style="color: ${profit >= 0 ? 'var(--success)' : 'var(--danger)'}">
+                        <span class="investment-detail-value ${profit >= 0 ? 'income' : 'expense'}">
                             ${formatCurrency(profit)} (${formatPercent(returnRate)})
                         </span>
                     </div>
@@ -1092,7 +1247,7 @@ function updateCreditCardsList() {
                     <small>${formatDate(card.date)} - ${card.installments}x de ${formatCurrency(card.installmentAmount)}</small>
                 </div>
             </div>
-            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+            <div class="item-end">
                 <div class="transaction-amount expense">
                     ${formatCurrency(card.totalAmount)}
                 </div>
@@ -1206,11 +1361,11 @@ function checkBillsAlerts() {
     
     if (overdueBills.length > 0) {
         alerts += `
-            <div class="alert alert-error" style="margin-bottom: 16px;">
+            <div class="alert alert-error">
                 <i class="fas fa-exclamation-triangle"></i>
                 <div>
                     <strong>Atenção!</strong> Você tem ${overdueBills.length} conta(s) em atraso.
-                    <button class="link-btn" data-page="bills" style="margin-left: 8px; color: inherit; text-decoration: underline;">
+                    <button class="link-btn alert-link" data-page="bills">
                         Ver contas
                     </button>
                 </div>
@@ -1220,11 +1375,11 @@ function checkBillsAlerts() {
     
     if (upcomingBills.length > 0) {
         alerts += `
-            <div class="alert alert-warning" style="margin-bottom: 16px;">
+            <div class="alert alert-warning">
                 <i class="fas fa-clock"></i>
                 <div>
                     <strong>Lembrete:</strong> ${upcomingBills.length} conta(s) vencem nos próximos 3 dias.
-                    <button class="link-btn" data-page="bills" style="margin-left: 8px; color: inherit; text-decoration: underline;">
+                    <button class="link-btn alert-link" data-page="bills">
                         Ver contas
                     </button>
                 </div>
@@ -1281,7 +1436,7 @@ function updateBillsList() {
                         <small>Vencimento: dia ${bill.dueDay}</small>
                     </div>
                 </div>
-                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                <div class="item-end">
                     <div class="transaction-amount expense">
                         ${formatCurrency(bill.amount)}
                     </div>
@@ -1291,7 +1446,7 @@ function updateBillsList() {
                     </span>
                     ${!isPaid ? `
                         <button class="btn-mark-paid" onclick="markBillAsPaid('${escapeHTML(bill.id)}', ${currentMonth}, ${currentYear})">
-                            <i class="fas fa-check"></i> Marcar como Pago
+                            <i class="fas fa-check"></i> Marcar como pago
                         </button>
                     ` : ''}
                     ${itemActions('monthlyBills', bill.id)}
@@ -1324,12 +1479,12 @@ function updateBillsCalendar() {
     const days = Object.keys(billsByDay).sort((a, b) => a - b);
     
     if (days.length === 0) {
-        container.innerHTML = `<p style="color: var(--text-secondary);">Nenhum vencimento neste mês</p>`;
+        container.innerHTML = `<p class="muted-text">Nenhum vencimento cadastrado.</p>`;
         return;
     }
     
     container.innerHTML = `
-        <h4 style="margin-bottom: 16px; color: var(--text-primary);">${monthName}</h4>
+        <h4 class="calendar-month">${monthName}</h4>
         ${days.map(day => {
             const bills = billsByDay[day];
             const total = bills.reduce((sum, b) => sum + b.amount, 0);
@@ -1393,7 +1548,7 @@ function updateCategoriesList() {
     if (!container) return;
     
     if (DB.categories.length === 0) {
-        container.innerHTML = `<p style="color: var(--text-secondary);">Nenhuma categoria cadastrada</p>`;
+        container.innerHTML = `<p class="muted-text">Nenhuma categoria cadastrada.</p>`;
         return;
     }
 
@@ -1743,6 +1898,7 @@ function startEdit(collection, id) {
         cancel.addEventListener('click', () => cancelEdit(collection));
         form.appendChild(cancel);
     }
+    setFormExpanded(card, true);
     card?.classList.add('is-editing');
     card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     form.querySelector('input, select, textarea')?.focus({ preventScroll: true });
@@ -1904,13 +2060,13 @@ function checkPasswordStrength(password) {
     };
     
     if (score <= 2) {
-        strength.text = '⚠️ Senha fraca';
+        strength.text = 'Senha fraca';
         strength.class = 'weak';
     } else if (score <= 4) {
-        strength.text = '⚡ Senha média';
+        strength.text = 'Senha média';
         strength.class = 'medium';
     } else {
-        strength.text = '✅ Senha forte';
+        strength.text = 'Senha forte';
         strength.class = 'strong';
     }
     
@@ -1924,7 +2080,7 @@ function showTerms() {
     modal.innerHTML = `
         <div class="modal-content">
             <div class="modal-header">
-                <h2>📜 Termos de Uso</h2>
+                <h2>Termos de uso</h2>
             </div>
             <div class="modal-body">
                 <h3>1. Aceitação dos Termos</h3>
@@ -1960,7 +2116,7 @@ function showPrivacy() {
     modal.innerHTML = `
         <div class="modal-content">
             <div class="modal-header">
-                <h2>🔒 Política de Privacidade</h2>
+                <h2>Política de privacidade</h2>
             </div>
             <div class="modal-body">
                 <h3>1. Coleta de Dados</h3>
@@ -2024,6 +2180,9 @@ function applyTheme(theme) {
     }
     
     localStorage.setItem('fincontrol-theme', theme);
+
+    // Gráficos leem as cores do tema: redesenha ao trocar.
+    if (typeof updateAllCharts === 'function' && DB.currentUser) updateAllCharts();
 }
 
 function setTheme(theme) {

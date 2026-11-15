@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="FinControl Pro — Controle financeiro inteligente">
-  <meta name="theme-color" content="#06b6d4">
+  <meta name="theme-color" content="#0B3B3C">
   <title>FinControl Pro</title>
 
+  <link rel="preload" href="fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles-modern.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="manifest" href="manifest.json">
@@ -30,37 +31,45 @@
      LOADING
      ============================================================ -->
 <div id="loading-screen">
-  <div class="loader"></div>
-  <p>Carregando FinControl Pro…</p>
+  <img src="icon.svg" alt="" class="loading-mark">
+  <div class="loader" role="progressbar" aria-label="Carregando"></div>
 </div>
 
 <!-- ============================================================
      LOGIN PAGE
      ============================================================ -->
-<div id="login-page" class="page-container hidden">
-  <div class="auth-background">
-    <div class="background-decoration"></div>
-    <div class="background-decoration-2"></div>
-  </div>
+<div id="login-page" class="page-container auth-page hidden">
+  <aside class="auth-aside" aria-hidden="true">
+    <img src="logo-fincontrol-pro-dark.svg" alt="" class="auth-wordmark">
+    <div class="auth-pitch">
+      <p class="auth-pitch-title">Quanto sobrou este mês?</p>
+      <p>Lançamentos, contas, metas e investimentos num lugar só, com a resposta na primeira tela.</p>
+    </div>
+    <div class="auth-sample">
+      <p class="hero-label">Sobrou este mês</p>
+      <p class="hero-amount">R$ 1.240,00</p>
+      <div class="hero-bar"><span class="hero-bar-spent" style="width:84%"></span></div>
+      <div class="auth-sample-legend"><span>Entrou R$ 7.800,00</span><span>Saiu R$ 6.560,00</span></div>
+    </div>
+  </aside>
 
   <div class="auth-card">
     <div class="auth-header">
-      <div class="app-icon">
-        <img src="logo-fincontrol-pro.svg?v=2" alt="FinControl Pro — Controle financeiro inteligente">
-      </div>
-      <p class="app-subtitle">Controle financeiro inteligente</p>
+      <img src="logo-fincontrol-pro.svg" alt="FinControl Pro" class="auth-logo">
+      <h1 class="app-title">Entrar</h1>
+      <p class="app-subtitle">Use o e-mail e a senha da sua conta.</p>
     </div>
 
     <form id="login-form" class="auth-form">
       <div class="form-group">
-        <label for="login-email">Email</label>
-        <input type="email" id="login-email" placeholder="seu@email.com" required>
+        <label for="login-email">E-mail</label>
+        <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email" required>
       </div>
       <div class="form-group">
         <label for="login-password">Senha</label>
         <div class="password-input-wrapper">
-          <input type="password" id="login-password" placeholder="••••••••" required>
-          <button type="button" class="toggle-password" onclick="togglePassword('login-password',this)">
+          <input type="password" id="login-password" placeholder="Sua senha" autocomplete="current-password" required>
+          <button type="button" class="toggle-password" aria-label="Mostrar senha" onclick="togglePassword('login-password',this)">
             <i class="fas fa-eye"></i>
           </button>
         </div>
@@ -70,53 +79,54 @@
       <div id="login-success" class="alert alert-success hidden"></div>
 
       <button type="submit" class="btn btn-primary btn-full">
-        <i class="fas fa-sign-in-alt"></i> Entrar
+        Entrar
       </button>
     </form>
 
     <div class="auth-footer">
-      <p>Não tem uma conta?</p>
-      <button id="show-register" class="link-button">Criar conta gratuita →</button>
+      <p>Ainda não tem conta?</p>
+      <button id="show-register" class="link-button">Criar conta</button>
     </div>
 
-    <div class="auth-security">
-      <i class="fas fa-lock"></i> Seus dados estão seguros e criptografados
-    </div>
+    <p class="auth-security">
+      <i class="fas fa-lock"></i> Seus dados ficam na sua conta e só você tem acesso.
+    </p>
   </div>
 </div>
 
 <!-- ============================================================
      REGISTER PAGE
      ============================================================ -->
-<div id="register-page" class="page-container hidden">
-  <div class="auth-background register-bg">
-    <div class="background-decoration"></div>
-    <div class="background-decoration-2"></div>
-  </div>
+<div id="register-page" class="page-container auth-page hidden">
+  <aside class="auth-aside" aria-hidden="true">
+    <img src="logo-fincontrol-pro-dark.svg" alt="" class="auth-wordmark">
+    <div class="auth-pitch">
+      <p class="auth-pitch-title">Comece pelo que entra e pelo que sai.</p>
+      <p>Cadastre seus lançamentos e o FinControl mostra, a cada mês, quanto sobrou e para onde foi o dinheiro.</p>
+    </div>
+  </aside>
 
   <div class="auth-card">
     <div class="auth-header">
-      <div class="app-icon">
-        <img src="icon.svg" alt="FinControl Pro">
-      </div>
-      <h1 class="app-title">Criar Conta</h1>
-      <p class="app-subtitle">Comece sua jornada financeira</p>
+      <img src="logo-fincontrol-pro.svg" alt="FinControl Pro" class="auth-logo">
+      <h1 class="app-title">Criar conta</h1>
+      <p class="app-subtitle">Leva menos de um minuto.</p>
     </div>
 
     <form id="register-form" class="auth-form">
       <div class="form-group">
-        <label for="register-name">Nome Completo</label>
-        <input type="text" id="register-name" placeholder="Seu nome" required>
+        <label for="register-name">Nome</label>
+        <input type="text" id="register-name" placeholder="Como quer ser chamado" autocomplete="name" required>
       </div>
       <div class="form-group">
-        <label for="register-email">Email</label>
-        <input type="email" id="register-email" placeholder="seu@email.com" required>
+        <label for="register-email">E-mail</label>
+        <input type="email" id="register-email" placeholder="seu@email.com" autocomplete="email" required>
       </div>
       <div class="form-group">
         <label for="register-password">Senha</label>
         <div class="password-input-wrapper">
-          <input type="password" id="register-password" placeholder="Mínimo 8 caracteres" required minlength="8">
-          <button type="button" class="toggle-password" onclick="togglePassword('register-password',this)">
+          <input type="password" id="register-password" placeholder="Mínimo de 8 caracteres" autocomplete="new-password" required minlength="8">
+          <button type="button" class="toggle-password" aria-label="Mostrar senha" onclick="togglePassword('register-password',this)">
             <i class="fas fa-eye"></i>
           </button>
         </div>
@@ -128,10 +138,10 @@
         </div>
       </div>
       <div class="form-group">
-        <label for="register-confirm">Confirmar Senha</label>
+        <label for="register-confirm">Confirmar senha</label>
         <div class="password-input-wrapper">
-          <input type="password" id="register-confirm" placeholder="Repita a senha" required>
-          <button type="button" class="toggle-password" onclick="togglePassword('register-confirm',this)">
+          <input type="password" id="register-confirm" placeholder="Repita a senha" autocomplete="new-password" required>
+          <button type="button" class="toggle-password" aria-label="Mostrar senha" onclick="togglePassword('register-confirm',this)">
             <i class="fas fa-eye"></i>
           </button>
         </div>
@@ -147,13 +157,13 @@
       <div id="register-success" class="alert alert-success hidden"></div>
 
       <button type="submit" class="btn btn-primary btn-full">
-        <i class="fas fa-user-plus"></i> Criar Conta
+        Criar conta
       </button>
     </form>
 
     <div class="auth-footer">
-      <p>Já tem uma conta?</p>
-      <button id="show-login" class="link-button">Fazer login →</button>
+      <p>Já tem conta?</p>
+      <button id="show-login" class="link-button">Entrar</button>
     </div>
   </div>
 </div>
@@ -166,30 +176,22 @@
   <!-- Mobile sidebar overlay -->
   <div class="nav-overlay" id="nav-overlay"></div>
 
-  <!-- Mobile menu button -->
-  <button class="mobile-menu-toggle" id="mobile-menu-toggle">
-    <i class="fas fa-bars"></i>
-  </button>
-
   <!-- ======== SIDEBAR NAVBAR ======== -->
   <nav class="navbar" id="navbar">
     <div class="nav-container">
 
       <!-- Brand -->
       <div class="nav-brand">
-        <div class="brand-icon">
-          <img src="icon.svg" alt="FinControl Pro">
-        </div>
-        <span class="brand-name">FinControl Pro</span>
+        <img src="logo-fincontrol-pro-dark.svg" alt="FinControl Pro" class="nav-wordmark">
       </div>
 
       <!-- Menu Items -->
       <div class="nav-menu" id="nav-menu">
         <button class="nav-item active" data-page="dashboard">
-          <i class="fas fa-chart-line"></i><span>Dashboard</span>
+          <i class="fas fa-house"></i><span>Início</span>
         </button>
         <button class="nav-item" data-page="transactions">
-          <i class="fas fa-exchange-alt"></i><span>Lançamentos</span>
+          <i class="fas fa-arrow-right-arrow-left"></i><span>Lançamentos</span>
         </button>
         <button class="nav-item" data-page="reports">
           <i class="fas fa-chart-bar"></i><span>Relatórios</span>
@@ -201,25 +203,25 @@
           <i class="fas fa-bullseye"></i><span>Metas</span>
         </button>
         <button class="nav-item" data-page="investments">
-          <i class="fas fa-chart-area"></i><span>Investimentos</span>
+          <i class="fas fa-seedling"></i><span>Investimentos</span>
         </button>
         <button class="nav-item" data-page="credit-cards">
           <i class="fas fa-credit-card"></i><span>Cartões</span>
         </button>
         <button class="nav-item" data-page="bills">
-          <i class="fas fa-file-invoice-dollar"></i><span>Contas</span>
+          <i class="fas fa-file-invoice"></i><span>Contas</span>
         </button>
 
         <div class="nav-divider"></div>
 
         <button class="nav-item" data-page="settings">
-          <i class="fas fa-cog"></i><span>Configurações</span>
+          <i class="fas fa-gear"></i><span>Configurações</span>
         </button>
         <button id="theme-toggle" class="nav-item">
-          <i class="fas fa-moon"></i><span>Tema</span>
+          <i class="fas fa-moon"></i><span>Alternar tema</span>
         </button>
         <button class="nav-item logout-btn">
-          <i class="fas fa-sign-out-alt"></i><span>Sair</span>
+          <i class="fas fa-arrow-right-from-bracket"></i><span>Sair</span>
         </button>
       </div>
 
@@ -230,13 +232,14 @@
   <!-- ======== TOPBAR ======== -->
   <div class="topbar">
     <div class="topbar-left">
+      <img src="icon.svg" alt="" class="topbar-mark">
       <div>
         <div class="topbar-greeting">Olá, <span id="user-name">usuário</span> 👋</div>
         <div class="topbar-date" id="topbar-date"></div>
       </div>
     </div>
     <div class="topbar-right">
-      <div class="topbar-avatar" id="topbar-avatar">U</div>
+      <div class="topbar-avatar" id="topbar-avatar" aria-hidden="true">U</div>
     </div>
   </div>
   <!-- /TOPBAR -->
@@ -246,86 +249,58 @@
 
     <!-- ---- DASHBOARD ---- -->
     <div id="dashboard-page" class="content-page">
-      <div class="page-header">
-        <div>
-          <h2 class="page-title"><i class="fas fa-chart-line"></i> Dashboard</h2>
-          <p class="page-subtitle">Visão geral das suas finanças</p>
+      <section class="hero" aria-labelledby="hero-label">
+        <div class="hero-top">
+          <h2 class="hero-label" id="hero-label">Sobrou este mês</h2>
+          <select id="filter-period" class="select-filter" aria-label="Período">
+            <option value="month" selected>Este mês</option>
+            <option value="week">Últimos 7 dias</option>
+            <option value="year">Este ano</option>
+            <option value="all">Tudo</option>
+          </select>
         </div>
-        <select id="filter-period" class="select-filter">
-          <option value="week">Última semana</option>
-          <option value="month" selected>Último mês</option>
-          <option value="year">Último ano</option>
-          <option value="all">Tudo</option>
-        </select>
-      </div>
+        <p class="hero-amount" id="total-balance">R$ 0,00</p>
+        <div class="hero-bar" id="hero-bar" role="img" aria-label="Sem lançamentos no período">
+          <span class="hero-bar-spent" id="hero-bar-spent"></span>
+        </div>
+        <p class="hero-caption" id="expense-percentage"></p>
+        <dl class="hero-figures">
+          <div><dt>Entrou</dt><dd class="income" id="total-income">R$ 0,00</dd></div>
+          <div><dt>Saiu</dt><dd class="expense" id="total-expense">R$ 0,00</dd></div>
+        </dl>
+      </section>
 
       <div id="alerts-container" class="dynamic-alerts"></div>
 
-      <div class="summary-cards">
-        <div class="summary-card income-card">
-          <div class="card-header">
-            <span>Receitas</span>
-            <div class="card-icon"><i class="fas fa-arrow-up"></i></div>
-          </div>
-          <p class="card-amount" id="total-income">R$ 0,00</p>
-          <p class="card-info" id="income-percentage">0% do total</p>
-        </div>
-        <div class="summary-card expense-card">
-          <div class="card-header">
-            <span>Despesas</span>
-            <div class="card-icon"><i class="fas fa-arrow-down"></i></div>
-          </div>
-          <p class="card-amount" id="total-expense">R$ 0,00</p>
-          <p class="card-info" id="expense-percentage">0% do total</p>
-        </div>
-        <div class="summary-card balance-card">
-          <div class="card-header">
-            <span>Saldo</span>
-            <div class="card-icon"><i class="fas fa-wallet"></i></div>
-          </div>
-          <p class="card-amount" id="total-balance">R$ 0,00</p>
-          <p class="card-info" id="balance-status">Situação positiva</p>
-        </div>
-      </div>
-
-      <!-- Charts -->
-      <div class="card">
-        <h3 class="card-title"><i class="fas fa-chart-area"></i> Evolução Financeira</h3>
-        <div class="chart-container"><canvas id="evolution-chart"></canvas></div>
-      </div>
-
       <div class="grid-2">
-        <div class="card">
-          <h3 class="card-title"><i class="fas fa-chart-pie"></i> Gastos por Categoria</h3>
-          <div class="chart-container"><canvas id="category-pie-chart"></canvas></div>
-        </div>
-        <div class="card">
-          <h3 class="card-title"><i class="fas fa-chart-bar"></i> Comparação Mensal</h3>
-          <div class="chart-container"><canvas id="comparison-chart"></canvas></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3 class="card-title"><i class="fas fa-chart-line"></i> Fluxo de Caixa Acumulado</h3>
-        <div class="chart-container"><canvas id="cashflow-chart"></canvas></div>
-      </div>
-
-      <!-- Recent Txns + Goals Preview -->
-      <div class="grid-2">
-        <div class="card">
+        <section class="card">
           <div class="card-header-flex">
-            <h3 class="card-title"><i class="fas fa-list-alt"></i> Transações Recentes</h3>
-            <button class="link-btn" data-page="transactions">Ver todas <i class="fas fa-chevron-right"></i></button>
+            <h3 class="card-title">Para onde foi o dinheiro</h3>
+            <button class="link-btn" data-page="reports">Relatórios</button>
+          </div>
+          <div id="category-breakdown"></div>
+        </section>
+        <section class="card">
+          <h3 class="card-title">Entradas e saídas por mês</h3>
+          <div class="chart-container"><canvas id="evolution-chart" role="img" aria-label="Gráfico de entradas e saídas por mês"></canvas></div>
+        </section>
+      </div>
+
+      <div class="grid-2">
+        <section class="card">
+          <div class="card-header-flex">
+            <h3 class="card-title">Últimos lançamentos</h3>
+            <button class="link-btn" data-page="transactions">Ver todos</button>
           </div>
           <div id="recent-transactions"></div>
-        </div>
-        <div class="card">
+        </section>
+        <section class="card">
           <div class="card-header-flex">
-            <h3 class="card-title"><i class="fas fa-bullseye"></i> Metas Financeiras</h3>
-            <button class="link-btn" data-page="goals">Gerenciar <i class="fas fa-chevron-right"></i></button>
+            <h3 class="card-title">Metas</h3>
+            <button class="link-btn" data-page="goals">Ver metas</button>
           </div>
           <div id="goals-preview"></div>
-        </div>
+        </section>
       </div>
     </div>
     <!-- /DASHBOARD -->
@@ -334,16 +309,16 @@
     <div id="transactions-page" class="content-page hidden">
       <div class="page-header">
         <div>
-          <h2 class="page-title"><i class="fas fa-exchange-alt"></i> Lançamentos</h2>
-          <p class="page-subtitle">Registre receitas e despesas</p>
+          <h2 class="page-title">Lançamentos</h2>
+          <p class="page-subtitle">Tudo que entrou e saiu, com busca e filtros.</p>
         </div>
       </div>
 
       <div class="card">
-        <h3 class="card-title"><i class="fas fa-plus-circle"></i> Nova Transação</h3>
+        <h3 class="card-title">Novo lançamento</h3>
         <form id="transaction-form" class="form-grid">
           <div class="form-group">
-            <label>Tipo *</label>
+            <label for="transaction-type">Tipo *</label>
             <select id="transaction-type" required>
               <option value="">Selecione o tipo</option>
               <option value="income">💰 Receita</option>
@@ -351,31 +326,31 @@
             </select>
           </div>
           <div class="form-group">
-            <label>Valor *</label>
+            <label for="transaction-amount">Valor *</label>
             <input type="number" id="transaction-amount" step="0.01" min="0" placeholder="0,00" required>
           </div>
           <div class="form-group">
-            <label>Categoria *</label>
+            <label for="transaction-category">Categoria *</label>
             <select id="transaction-category" required>
               <option value="">Selecione uma categoria</option>
             </select>
           </div>
           <div class="form-group">
-            <label>Data *</label>
+            <label for="transaction-date">Data *</label>
             <input type="date" id="transaction-date" required>
           </div>
           <div class="form-group form-full">
-            <label>Descrição</label>
+            <label for="transaction-description">Descrição</label>
             <textarea id="transaction-description" rows="2" placeholder="Descrição opcional…"></textarea>
           </div>
           <button type="submit" class="btn btn-primary form-full">
-            <i class="fas fa-plus"></i> Adicionar Transação
+            <i class="fas fa-plus"></i> Adicionar lançamento
           </button>
         </form>
       </div>
 
       <div class="card">
-        <h3 class="card-title"><i class="fas fa-history"></i> Histórico</h3>
+        <h3 class="card-title">Histórico</h3>
         <div class="list-filters" id="transaction-filters">
           <div class="form-group filter-search">
             <label for="filter-search">Buscar</label>
@@ -411,49 +386,41 @@
     <div id="reports-page" class="content-page hidden">
       <div class="page-header">
         <div>
-          <h2 class="page-title"><i class="fas fa-chart-bar"></i> Relatórios</h2>
-          <p class="page-subtitle">Análise detalhada das suas finanças</p>
+          <h2 class="page-title">Relatórios</h2>
+          <p class="page-subtitle">Como o seu dinheiro se moveu ao longo do tempo.</p>
         </div>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-          <select id="reports-filter" class="select-filter">
-            <option value="week">Última semana</option>
-            <option value="month" selected>Último mês</option>
-            <option value="year">Último ano</option>
+        <div class="page-actions">
+          <select id="reports-filter" class="select-filter" aria-label="Período">
+            <option value="month" selected>Este mês</option>
+            <option value="week">Últimos 7 dias</option>
+            <option value="year">Este ano</option>
             <option value="all">Tudo</option>
           </select>
-          <button id="export-pdf-btn"   class="btn btn-primary"><i class="fas fa-file-pdf"></i> PDF</button>
-          <button id="export-excel-btn" class="btn btn-success"><i class="fas fa-file-excel"></i> Excel</button>
+          <button id="export-pdf-btn" class="btn btn-ghost"><i class="fas fa-file-pdf"></i> PDF</button>
+          <button id="export-excel-btn" class="btn btn-ghost"><i class="fas fa-file-excel"></i> Excel</button>
         </div>
       </div>
 
-      <div class="summary-cards">
-        <div class="summary-card income-card">
-          <div class="card-header"><span>Receitas</span><div class="card-icon"><i class="fas fa-arrow-up"></i></div></div>
-          <p class="card-amount" id="report-income">R$ 0,00</p>
-        </div>
-        <div class="summary-card expense-card">
-          <div class="card-header"><span>Despesas</span><div class="card-icon"><i class="fas fa-arrow-down"></i></div></div>
-          <p class="card-amount" id="report-expense">R$ 0,00</p>
-        </div>
-        <div class="summary-card balance-card">
-          <div class="card-header"><span>Saldo</span><div class="card-icon"><i class="fas fa-wallet"></i></div></div>
-          <p class="card-amount" id="report-balance">R$ 0,00</p>
-        </div>
-      </div>
+      <dl class="stat-strip">
+        <div><dt>Entrou</dt><dd class="income" id="report-income">R$ 0,00</dd></div>
+        <div><dt>Saiu</dt><dd class="expense" id="report-expense">R$ 0,00</dd></div>
+        <div><dt>Resultado</dt><dd id="report-balance">R$ 0,00</dd></div>
+      </dl>
 
-      <div class="card">
-        <h3 class="card-title"><i class="fas fa-chart-area"></i> Evolução Temporal</h3>
-        <div class="chart-container"><canvas id="reports-evolution-chart"></canvas></div>
-      </div>
+      <section class="card">
+        <h3 class="card-title">Saldo acumulado</h3>
+        <p class="card-note">Tudo que entrou menos tudo que saiu, somado mês a mês.</p>
+        <div class="chart-container"><canvas id="reports-evolution-chart" role="img" aria-label="Saldo acumulado por mês"></canvas></div>
+      </section>
       <div class="grid-2">
-        <div class="card">
-          <h3 class="card-title"><i class="fas fa-chart-pie"></i> Distribuição de Gastos</h3>
-          <div class="chart-container"><canvas id="reports-category-chart"></canvas></div>
-        </div>
-        <div class="card">
-          <h3 class="card-title"><i class="fas fa-chart-bar"></i> Comparativo Mensal</h3>
-          <div class="chart-container"><canvas id="reports-comparison-chart"></canvas></div>
-        </div>
+        <section class="card">
+          <h3 class="card-title">Gastos por categoria</h3>
+          <div class="chart-container chart-tall"><canvas id="reports-category-chart" role="img" aria-label="Gastos por categoria no período"></canvas></div>
+        </section>
+        <section class="card">
+          <h3 class="card-title">Resultado de cada mês</h3>
+          <div class="chart-container chart-tall"><canvas id="reports-comparison-chart" role="img" aria-label="Resultado mensal"></canvas></div>
+        </section>
       </div>
     </div>
     <!-- /REPORTS -->
@@ -462,30 +429,30 @@
     <div id="budgets-page" class="content-page hidden">
       <div class="page-header">
         <div>
-          <h2 class="page-title"><i class="fas fa-piggy-bank"></i> Orçamentos</h2>
-          <p class="page-subtitle">Defina limites de gastos por categoria</p>
+          <h2 class="page-title">Orçamentos</h2>
+          <p class="page-subtitle">Limites de gasto por categoria, a cada mês.</p>
         </div>
       </div>
 
       <div class="card">
-        <h3 class="card-title"><i class="fas fa-plus-circle"></i> Novo Orçamento</h3>
+        <h3 class="card-title">Novo orçamento</h3>
         <form id="budget-form" class="form-grid">
           <div class="form-group">
-            <label>Categoria *</label>
+            <label for="budget-category">Categoria *</label>
             <input type="text" id="budget-category" placeholder="Ex: Alimentação" required>
           </div>
           <div class="form-group">
-            <label>Valor Mensal *</label>
+            <label for="budget-amount">Valor mensal *</label>
             <input type="number" id="budget-amount" step="0.01" min="0" placeholder="0,00" required>
           </div>
           <button type="submit" class="btn btn-primary form-full">
-            <i class="fas fa-plus"></i> Adicionar Orçamento
+            <i class="fas fa-plus"></i> Adicionar orçamento
           </button>
         </form>
       </div>
 
       <div class="card">
-        <h3 class="card-title"><i class="fas fa-list-check"></i> Orçamentos Ativos</h3>
+        <h3 class="card-title">Seus orçamentos</h3>
         <div id="budgets-list"></div>
       </div>
     </div>
@@ -495,38 +462,38 @@
     <div id="goals-page" class="content-page hidden">
       <div class="page-header">
         <div>
-          <h2 class="page-title"><i class="fas fa-bullseye"></i> Metas Financeiras</h2>
-          <p class="page-subtitle">Acompanhe o progresso dos seus objetivos</p>
+          <h2 class="page-title">Metas</h2>
+          <p class="page-subtitle">Quanto já foi guardado para cada objetivo.</p>
         </div>
       </div>
 
       <div class="card">
-        <h3 class="card-title"><i class="fas fa-plus-circle"></i> Nova Meta</h3>
+        <h3 class="card-title">Nova meta</h3>
         <form id="goal-form" class="form-grid">
           <div class="form-group">
-            <label>Nome da Meta *</label>
+            <label for="goal-name">Nome da meta *</label>
             <input type="text" id="goal-name" placeholder="Ex: Viagem, Carro novo" required>
           </div>
           <div class="form-group">
-            <label>Valor Alvo *</label>
+            <label for="goal-amount">Valor alvo *</label>
             <input type="number" id="goal-amount" step="0.01" min="0" placeholder="0,00" required>
           </div>
           <div class="form-group">
-            <label>Valor já guardado</label>
+            <label for="goal-current">Valor já guardado</label>
             <input type="number" id="goal-current" step="0.01" min="0" placeholder="0,00">
           </div>
           <div class="form-group">
-            <label>Data Limite *</label>
+            <label for="goal-deadline">Data limite *</label>
             <input type="date" id="goal-deadline" required>
           </div>
           <button type="submit" class="btn btn-primary form-full">
-            <i class="fas fa-plus"></i> Criar Meta
+            <i class="fas fa-plus"></i> Criar meta
           </button>
         </form>
       </div>
 
       <div class="card">
-        <h3 class="card-title"><i class="fas fa-flag"></i> Minhas Metas</h3>
+        <h3 class="card-title">Suas metas</h3>
         <div id="goals-list"></div>
       </div>
     </div>
@@ -536,20 +503,20 @@
     <div id="investments-page" class="content-page hidden">
       <div class="page-header">
         <div>
-          <h2 class="page-title"><i class="fas fa-chart-area"></i> Investimentos</h2>
-          <p class="page-subtitle">Acompanhe sua carteira de investimentos</p>
+          <h2 class="page-title">Investimentos</h2>
+          <p class="page-subtitle">Quanto você aplicou e quanto rende hoje.</p>
         </div>
       </div>
 
       <div class="card">
-        <h3 class="card-title"><i class="fas fa-plus-circle"></i> Adicionar Investimento</h3>
+        <h3 class="card-title">Novo investimento</h3>
         <form id="investment-form" class="form-grid">
           <div class="form-group">
-            <label>Nome *</label>
+            <label for="investment-name">Nome *</label>
             <input type="text" id="investment-name" placeholder="Ex: Tesouro Direto" required>
           </div>
           <div class="form-group">
-            <label>Tipo *</label>
+            <label for="investment-type">Tipo *</label>
             <select id="investment-type" required>
               <option value="">Selecione</option>
               <option value="acoes">Ações</option>
@@ -562,37 +529,37 @@
             </select>
           </div>
           <div class="form-group">
-            <label>Valor Investido *</label>
+            <label for="investment-amount">Valor investido *</label>
             <input type="number" id="investment-amount" step="0.01" min="0" placeholder="0,00" required>
           </div>
           <div class="form-group">
-            <label>Valor Atual</label>
+            <label for="investment-current">Valor atual</label>
             <input type="number" id="investment-current" step="0.01" min="0" placeholder="0,00">
           </div>
           <div class="form-group">
-            <label>Data *</label>
+            <label for="investment-date">Data *</label>
             <input type="date" id="investment-date" required>
           </div>
           <div class="form-group">
-            <label>Rendimento Esperado (% a.a.)</label>
+            <label for="investment-yield">Rendimento esperado (% a.a.)</label>
             <input type="number" id="investment-yield" step="0.01" placeholder="0,00">
           </div>
           <button type="submit" class="btn btn-primary form-full">
-            <i class="fas fa-plus"></i> Adicionar Investimento
+            <i class="fas fa-plus"></i> Adicionar investimento
           </button>
         </form>
       </div>
 
       <div class="grid-2">
         <div class="card">
-          <h3 class="card-title"><i class="fas fa-calculator"></i> Resumo Geral</h3>
+          <h3 class="card-title">Resumo da carteira</h3>
           <div class="investment-summary">
             <div class="summary-item">
-              <span class="summary-label">Total Investido</span>
+              <span class="summary-label">Total investido</span>
               <span class="summary-value" id="total-invested">R$ 0,00</span>
             </div>
             <div class="summary-item">
-              <span class="summary-label">Valor Atual</span>
+              <span class="summary-label">Valor atual</span>
               <span class="summary-value" id="total-current">R$ 0,00</span>
             </div>
             <div class="summary-item">
@@ -606,13 +573,13 @@
           </div>
         </div>
         <div class="card">
-          <h3 class="card-title"><i class="fas fa-chart-pie"></i> Distribuição</h3>
+          <h3 class="card-title">Distribuição por tipo</h3>
           <div class="chart-container"><canvas id="investment-distribution-chart"></canvas></div>
         </div>
       </div>
 
       <div class="card">
-        <h3 class="card-title"><i class="fas fa-briefcase"></i> Meus Investimentos</h3>
+        <h3 class="card-title">Seus investimentos</h3>
         <div id="investments-list"></div>
       </div>
     </div>
@@ -622,32 +589,32 @@
     <div id="credit-cards-page" class="content-page hidden">
       <div class="page-header">
         <div>
-          <h2 class="page-title"><i class="fas fa-credit-card"></i> Cartões de Crédito</h2>
-          <p class="page-subtitle">Registre compras e parcelas</p>
+          <h2 class="page-title">Cartões de crédito</h2>
+          <p class="page-subtitle">Compras parceladas e o valor de cada parcela.</p>
         </div>
       </div>
 
       <div class="card">
-        <h3 class="card-title"><i class="fas fa-plus-circle"></i> Nova Compra</h3>
+        <h3 class="card-title">Nova compra</h3>
         <form id="credit-card-form" class="form-grid">
           <div class="form-group">
-            <label>Nome do Cartão *</label>
+            <label for="card-name">Nome do cartão *</label>
             <input type="text" id="card-name" placeholder="Ex: Nubank, Inter" required>
           </div>
           <div class="form-group">
-            <label>Descrição *</label>
+            <label for="card-description">Descrição *</label>
             <input type="text" id="card-description" placeholder="Ex: Compra na Amazon" required>
           </div>
           <div class="form-group">
-            <label>Valor Total *</label>
+            <label for="card-amount">Valor total *</label>
             <input type="number" id="card-amount" step="0.01" min="0" placeholder="0,00" required>
           </div>
           <div class="form-group">
-            <label>Data da Compra *</label>
+            <label for="card-date">Data da compra *</label>
             <input type="date" id="card-date" required>
           </div>
           <div class="form-group">
-            <label>Parcelas *</label>
+            <label for="card-installments">Parcelas *</label>
             <select id="card-installments" required>
               <option value="1">À vista</option>
               <option value="2">2x</option>
@@ -663,7 +630,7 @@
             </select>
           </div>
           <div class="form-group">
-            <label>Categoria</label>
+            <label for="card-category">Categoria</label>
             <select id="card-category">
               <option value="Compras">Compras</option>
               <option value="Alimentação">Alimentação</option>
@@ -675,13 +642,13 @@
             </select>
           </div>
           <button type="submit" class="btn btn-primary form-full">
-            <i class="fas fa-plus"></i> Adicionar Compra
+            <i class="fas fa-plus"></i> Adicionar compra
           </button>
         </form>
       </div>
 
       <div class="card">
-        <h3 class="card-title"><i class="fas fa-receipt"></i> Compras no Cartão</h3>
+        <h3 class="card-title">Compras no cartão</h3>
         <div id="credit-cards-list"></div>
       </div>
     </div>
@@ -691,16 +658,16 @@
     <div id="bills-page" class="content-page hidden">
       <div class="page-header">
         <div>
-          <h2 class="page-title"><i class="fas fa-file-invoice-dollar"></i> Contas Mensais</h2>
-          <p class="page-subtitle">Gerencie suas contas recorrentes</p>
+          <h2 class="page-title">Contas do mês</h2>
+          <p class="page-subtitle">Contas que se repetem todo mês e seus vencimentos.</p>
         </div>
       </div>
 
       <div class="card">
-        <h3 class="card-title"><i class="fas fa-plus-circle"></i> Nova Conta</h3>
+        <h3 class="card-title">Nova conta</h3>
         <form id="bill-form" class="form-grid">
           <div class="form-group">
-            <label>Tipo de Conta *</label>
+            <label for="bill-type">Tipo de conta *</label>
             <select id="bill-type" required>
               <option value="">Selecione</option>
               <option value="Água">💧 Água</option>
@@ -718,45 +685,45 @@
             </select>
           </div>
           <div class="form-group">
-            <label>Valor Médio *</label>
+            <label for="bill-amount">Valor médio *</label>
             <input type="number" id="bill-amount" step="0.01" min="0" placeholder="0,00" required>
           </div>
           <div class="form-group">
-            <label>Dia de Vencimento *</label>
+            <label for="bill-due-day">Dia de vencimento *</label>
             <input type="number" id="bill-due-day" min="1" max="31" placeholder="Ex: 10" required>
           </div>
           <div class="form-group">
-            <label>Observações</label>
+            <label for="bill-notes">Observações</label>
             <input type="text" id="bill-notes" placeholder="Informações adicionais">
           </div>
           <button type="submit" class="btn btn-primary form-full">
-            <i class="fas fa-plus"></i> Adicionar Conta
+            <i class="fas fa-plus"></i> Adicionar conta
           </button>
         </form>
       </div>
 
       <div class="grid-2">
         <div class="card">
-          <h3 class="card-title"><i class="fas fa-calculator"></i> Resumo</h3>
+          <h3 class="card-title">Resumo</h3>
           <div class="investment-summary">
             <div class="summary-item">
-              <span class="summary-label">Total Mensal</span>
+              <span class="summary-label">Total mensal</span>
               <span class="summary-value danger" id="total-bills">R$ 0,00</span>
             </div>
             <div class="summary-item">
-              <span class="summary-label">Contas Cadastradas</span>
+              <span class="summary-label">Contas cadastradas</span>
               <span class="summary-value" id="bills-count">0</span>
             </div>
           </div>
         </div>
         <div class="card">
-          <h3 class="card-title"><i class="fas fa-calendar-alt"></i> Vencimentos do Mês</h3>
+          <h3 class="card-title">Vencimentos do mês</h3>
           <div id="bills-calendar"></div>
         </div>
       </div>
 
       <div class="card">
-        <h3 class="card-title"><i class="fas fa-list"></i> Minhas Contas</h3>
+        <h3 class="card-title">Suas contas</h3>
         <div id="bills-list"></div>
       </div>
     </div>
@@ -766,13 +733,13 @@
     <div id="settings-page" class="content-page hidden">
       <div class="page-header">
         <div>
-          <h2 class="page-title"><i class="fas fa-cog"></i> Configurações</h2>
-          <p class="page-subtitle">Personalize o seu FinControl Pro</p>
+          <h2 class="page-title">Configurações</h2>
+          <p class="page-subtitle">Aparência, categorias e seus dados.</p>
         </div>
       </div>
 
       <div class="card">
-        <h3 class="card-title"><i class="fas fa-palette"></i> Aparência</h3>
+        <h3 class="card-title">Aparência</h3>
         <div class="theme-selector">
           <button class="theme-option active" data-theme="light">
             <i class="fas fa-sun"></i><span>Claro</span>
@@ -787,31 +754,31 @@
       </div>
 
       <div class="card">
-        <h3 class="card-title"><i class="fas fa-tags"></i> Categorias</h3>
+        <h3 class="card-title">Categorias</h3>
         <div class="form-grid">
           <div class="form-group">
-            <label>Nome</label>
+            <label for="new-category-name">Nome</label>
             <input type="text" id="new-category-name" placeholder="Nome da categoria">
           </div>
           <div class="form-group">
-            <label>Tipo</label>
+            <label for="new-category-type">Tipo</label>
             <select id="new-category-type">
               <option value="income">Receita</option>
               <option value="expense">Despesa</option>
             </select>
           </div>
           <button id="add-category-btn" class="btn btn-primary form-full">
-            <i class="fas fa-plus"></i> Adicionar Categoria
+            <i class="fas fa-plus"></i> Adicionar categoria
           </button>
         </div>
-        <div style="margin-top:20px;">
-          <p style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;">Categorias ativas</p>
+        <div class="section-gap">
+          <p class="subhead">Suas categorias</p>
           <div id="categories-list"></div>
         </div>
       </div>
 
       <div class="card">
-        <h3 class="card-title"><i class="fas fa-database"></i> Backup e Dados</h3>
+        <h3 class="card-title">Backup e dados</h3>
         <div class="settings-section">
           <div class="settings-item">
             <div>
@@ -827,18 +794,18 @@
               <h4>Importar dados</h4>
               <p>Restaure um backup anterior</p>
             </div>
-            <label class="btn btn-ghost" style="cursor:pointer;">
+            <label class="btn btn-ghost">
               <i class="fas fa-upload"></i> Importar
-              <input type="file" id="restore-btn" accept=".json" style="display:none;">
+              <input type="file" id="restore-btn" accept=".json" class="visually-hidden">
             </label>
           </div>
           <div class="settings-item">
             <div>
-              <h4 style="color:var(--red-600)">Limpar todos os dados</h4>
-              <p>Ação irreversível — tenha cuidado!</p>
+              <h4 class="danger-text">Apagar todos os dados</h4>
+              <p>Remove lançamentos, metas, contas e categorias da sua conta. Não dá para desfazer.</p>
             </div>
             <button id="clear-data-btn" class="btn btn-danger">
-              <i class="fas fa-trash"></i> Limpar Tudo
+              <i class="fas fa-trash"></i> Apagar tudo
             </button>
           </div>
         </div>
@@ -851,45 +818,22 @@
 
   <!-- ======== FOOTER ======== -->
   <footer class="footer">
-    <div class="footer-container">
-      <div class="footer-about">
-        <div class="footer-brand">
-          <div class="brand-icon">
-            <img src="icon.svg" alt="FinControl Pro">
-          </div>
-          <span class="brand-name" style="background:var(--grad-brand);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">FinControl Pro</span>
-        </div>
-        <p class="footer-description">
-          Sua liberdade financeira começa aqui. O FinControl Pro oferece ferramentas avançadas para você dominar seu dinheiro com segurança e inteligência.
-        </p>
-        <div class="footer-security">
-          <span class="security-badge"><i class="fas fa-lock"></i> Criptografia</span>
-          <span class="security-badge"><i class="fas fa-shield-alt"></i> Segurança</span>
-          <span class="security-badge"><i class="fas fa-cloud"></i> Nuvem</span>
-        </div>
-      </div>
-      <div class="footer-links">
-        <div class="footer-column">
-          <h4>Institucional</h4>
-          <ul>
-            <li><a href="#" onclick="showTerms();return false;"><i class="fas fa-file-alt"></i> Termos de Uso</a></li>
-            <li><a href="#" onclick="showPrivacy();return false;"><i class="fas fa-shield-alt"></i> Privacidade</a></li>
-          </ul>
-        </div>
-        <div class="footer-column">
-          <h4>Contato</h4>
-          <ul>
-            <li><a href="mailto:felipe.pessoall2026@gmail.com"><i class="fas fa-envelope"></i> E-mail</a></li>
-            <li><a href="#"><i class="fab fa-instagram"></i> Instagram</a></li>
-          </ul>
-        </div>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <p>© 2026 FinControl Pro. Todos os direitos reservados.</p>
-      <p class="footer-dev">Crafted with ❤️ by <strong>FELIPE ANDRADE DEV</strong></p>
-    </div>
+    <p>© 2026 FinControl Pro. Feito por Felipe Andrade.</p>
+    <nav class="footer-links" aria-label="Institucional">
+      <a href="#" onclick="showTerms();return false;">Termos de uso</a>
+      <a href="#" onclick="showPrivacy();return false;">Privacidade</a>
+      <a href="mailto:felipe.pessoall2026@gmail.com">Contato</a>
+    </nav>
   </footer>
+
+  <!-- ======== BARRA DE ABAS (CELULAR) ======== -->
+  <nav class="tabbar" aria-label="Navegação rápida">
+    <button class="tab-item active" data-page="dashboard"><i class="fas fa-house"></i><span>Início</span></button>
+    <button class="tab-item" data-page="transactions"><i class="fas fa-arrow-right-arrow-left"></i><span>Lançamentos</span></button>
+    <button class="tab-item tab-add" id="tab-add" aria-label="Novo lançamento"><i class="fas fa-plus"></i></button>
+    <button class="tab-item" data-page="goals"><i class="fas fa-bullseye"></i><span>Metas</span></button>
+    <button class="tab-item" id="tab-more" aria-label="Mais opções"><i class="fas fa-bars"></i><span>Mais</span></button>
+  </nav>
   <!-- /FOOTER -->
 
 </div>
@@ -956,32 +900,27 @@
     }
   })();
 
-  // ---- Mobile sidebar ----
-  var toggle  = document.getElementById('mobile-menu-toggle');
+  // ---- Menu lateral no celular (aberto pelo botão "Mais") ----
   var navbar  = document.getElementById('navbar');
   var overlay = document.getElementById('nav-overlay');
+  var moreBtn = document.getElementById('tab-more');
 
   function openMenu(){
     navbar.classList.add('menu-open');
     overlay.classList.add('visible');
+    moreBtn && moreBtn.setAttribute('aria-expanded', 'true');
+    var first = navbar.querySelector('.nav-item');
+    first && first.focus();
   }
   function closeMenu(){
+    if (!navbar.classList.contains('menu-open')) return;
     navbar.classList.remove('menu-open');
     overlay.classList.remove('visible');
+    moreBtn && moreBtn.setAttribute('aria-expanded', 'false');
   }
 
-  toggle?.addEventListener('click', function(){
-    navbar.classList.contains('menu-open') ? closeMenu() : openMenu();
-  });
-
-  overlay?.addEventListener('click', closeMenu);
-
-  // Close menu on nav item click (mobile)
-  document.querySelectorAll('.nav-item').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      if(window.innerWidth <= 768) closeMenu();
-    });
-  });
+  overlay && overlay.addEventListener('click', closeMenu);
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeMenu(); });
 
   // ---- Update topbar avatar initial ----
   function updateTopbarAvatar(name){
