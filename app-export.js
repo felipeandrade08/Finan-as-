@@ -246,12 +246,10 @@ function exportToExcel() {
         XLSX.utils.book_append_sheet(wb, ws_transactions, 'Transações');
         
         // ========== ABA 3: ORÇAMENTOS ==========
-        const budgetsData = [['Categoria', 'Limite', 'Gasto', 'Disponível', 'Percentual']];
+        const budgetsData = [['Categoria', 'Limite mensal', `Gasto em ${currentMonthName()}`, 'Disponível', 'Percentual']];
         
         DB.budgets.forEach(b => {
-            const spent = DB.transactions
-                .filter(t => t.type === 'expense' && t.category === b.category)
-                .reduce((sum, t) => sum + t.amount, 0);
+            const spent = getMonthSpending(b.category);
             
             const available = b.amount - spent;
             budgetsData.push([

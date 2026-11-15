@@ -9,10 +9,11 @@ O projeto reúne em um só lugar o acompanhamento de receitas, despesas, orçame
 - **Início:** quanto sobrou no período (mês, semana, ano ou tudo), para onde foi o dinheiro, últimos lançamentos e metas.
 - **Lançamentos:** registro, edição e exclusão de receitas e despesas, com busca e filtros por tipo, categoria e mês.
 - **Relatórios:** saldo acumulado, gastos por categoria e resultado de cada mês.
-- **Orçamentos:** acompanhamento de limites e gastos por categoria.
+- **Orçamentos:** limite mensal por categoria, contando só os gastos do mês (inclusive parcelas do cartão).
 - **Metas:** controle do progresso de objetivos financeiros, com registro do valor guardado.
 - **Investimentos:** organização e visualização da carteira.
-- **Cartões e contas:** acompanhamento de compromissos financeiros.
+- **Cartões:** compras parceladas; cada parcela entra nos gastos do mês em que vence.
+- **Contas:** contas recorrentes com alertas de vencimento; ao marcar como paga, a despesa é lançada automaticamente (e pode ser desfeita).
 - **Exportação:** geração de relatórios em PDF e planilhas Excel.
 - **Backup:** exportação e restauração dos dados em JSON.
 - **Personalização:** tema claro, escuro e automático.

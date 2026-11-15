@@ -90,7 +90,7 @@ function getMonthlySeries(count = 6) {
         const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
         months.push({ date, income: 0, expense: 0 });
     }
-    DB.transactions.forEach(t => {
+    getLedger().forEach(t => {
         const d = parseLocalDate(t.date);
         const m = months.find(x => x.date.getMonth() === d.getMonth() && x.date.getFullYear() === d.getFullYear());
         if (m) m[t.type === 'income' ? 'income' : 'expense'] += t.amount;
