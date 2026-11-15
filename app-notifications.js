@@ -36,9 +36,7 @@ class NotificationSystem {
                     <div style="font-weight: 700; font-size: 15px; margin-bottom: 4px; color: var(--text-primary);">
                         ${this.getTitle(type)}
                     </div>
-                    <div style="font-size: 14px; color: var(--text-secondary);">
-                        ${message}
-                    </div>
+                    <div class="notification-message" style="font-size: 14px; color: var(--text-secondary);"></div>
                 </div>
                 <button onclick="this.closest('.notification').remove()" 
                         style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 18px; padding: 0;">
@@ -47,6 +45,9 @@ class NotificationSystem {
             </div>
         `;
         
+        // Texto puro: mensagens podem conter nomes digitados pelo usuário.
+        notification.querySelector('.notification-message').textContent = message;
+
         this.container.appendChild(notification);
         
         // Auto remover após duração

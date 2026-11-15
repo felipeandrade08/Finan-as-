@@ -32,6 +32,51 @@ const DEFAULT_CATEGORIES = [
 
 let currentFilter = 'month';
 
+// ========== UTILITÁRIOS ==========
+// Escapa texto digitado pelo usuário antes de inseri-lo via innerHTML.
+function escapeHTML(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Converte "AAAA-MM-DD" em data LOCAL. new Date("AAAA-MM-DD") é interpretado
+// como meia-noite UTC, o que no Brasil (UTC-3) mostra o dia anterior.
+function parseLocalDate(value) {
+    if (value instanceof Date) return new Date(value.getTime());
+    if (typeof value === 'string') {
+        const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    }
+    return new Date(value);
+}
+
+// Data de hoje no formato AAAA-MM-DD, no fuso local (toISOString usa UTC).
+function todayISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Ordena por data (mais antiga primeiro); empata pela ordem de cadastro.
+function sortByDate(list) {
+    return list
+        .map((item, index) => ({ item, index }))
+        .sort((a, b) => (parseLocalDate(a.item.date) - parseLocalDate(b.item.date)) || (a.index - b.index))
+        .map(x => x.item);
+}
+
+// Executa operações em lotes de até 500 (limite do Firestore por batch).
+async function commitInChunks(refs, operation) {
+    for (let i = 0; i < refs.length; i += 500) {
+        const batch = window.db.batch();
+        refs.slice(i, i + 500).forEach(item => operation(batch, item));
+        await batch.commit();
+    }
+}
+
 // ========== INICIALIZAÇÃO ==========
 document.addEventListener('DOMContentLoaded', () => {
     console.log('=== FINCONTROL PRO v4.0 INICIANDO ===');
@@ -324,7 +369,7 @@ async function loadUserDataFromFirebase(userId) {
                 ...doc.data()
             }));
         } else {
-            DB.categories = DEFAULT_CATEGORIES;
+            DB.categories = DEFAULT_CATEGORIES.map(c => ({ ...c }));
         }
         
         const transactionsSnap = await window.db.collection('users').doc(userId)
@@ -519,15 +564,15 @@ function updateTransactionsList() {
         return;
     }
 
-    container.innerHTML = transactions.slice().reverse().map(t => `
+    container.innerHTML = sortByDate(transactions).reverse().map(t => `
         <div class="transaction-item">
             <div class="transaction-info">
                 <div class="transaction-icon ${t.type}">
                     <i class="fas fa-arrow-${t.type === 'income' ? 'up' : 'down'}"></i>
                 </div>
                 <div class="transaction-details">
-                    <h4>${t.category}</h4>
-                    <p>${t.description || 'Sem descrição'}</p>
+                    <h4>${escapeHTML(t.category)}</h4>
+                    <p>${escapeHTML(t.description || 'Sem descrição')}</p>
                     <small>${formatDate(t.date)}</small>
                 </div>
             </div>
@@ -585,7 +630,7 @@ function updateRecentTransactions() {
     const container = document.getElementById('recent-transactions');
     if (!container) return;
     
-    const transactions = getFilteredTransactions().slice(-6).reverse();
+    const transactions = sortByDate(getFilteredTransactions()).slice(-6).reverse();
     
     if (transactions.length === 0) {
         container.innerHTML = `
@@ -604,7 +649,7 @@ function updateRecentTransactions() {
                     <i class="fas fa-arrow-${t.type === 'income' ? 'up' : 'down'}"></i>
                 </div>
                 <div class="transaction-details">
-                    <h4 style="font-size: 14px; font-weight: 700;">${t.category}</h4>
+                    <h4 style="font-size: 14px; font-weight: 700;">${escapeHTML(t.category)}</h4>
                     <small>${formatDate(t.date)}</small>
                 </div>
             </div>
@@ -641,7 +686,7 @@ function getFilteredTransactions() {
             return transactions;
     }
     
-    return transactions.filter(t => new Date(t.date) >= startDate);
+    return transactions.filter(t => parseLocalDate(t.date) >= startDate);
 }
 
 // ========== ORÇAMENTOS ==========
@@ -708,7 +753,7 @@ function updateBudgetsList() {
         return `
             <div class="budget-item">
                 <div class="budget-header">
-                    <h4 class="budget-name">${b.category}</h4>
+                    <h4 class="budget-name">${escapeHTML(b.category)}</h4>
                     <span class="budget-percentage ${status}">${percentage.toFixed(0)}%</span>
                 </div>
                 <div class="progress-bar">
@@ -790,7 +835,7 @@ function updateGoalsList() {
         return `
             <div class="goal-item">
                 <div class="goal-header">
-                    <h4 class="goal-name">${g.name}</h4>
+                    <h4 class="goal-name">${escapeHTML(g.name)}</h4>
                     <div class="goal-icon">
                         <i class="fas fa-bullseye"></i>
                     </div>
@@ -839,7 +884,7 @@ function updateGoalsPreview() {
         return `
             <div class="goal-item" style="margin-bottom: 12px;">
                 <div class="goal-header">
-                    <h4 class="goal-name" style="font-size: 16px;">${g.name}</h4>
+                    <h4 class="goal-name" style="font-size: 16px;">${escapeHTML(g.name)}</h4>
                 </div>
                 <div class="progress-bar">
                     <div class="progress-fill success" style="width: ${Math.min(percentage, 100)}%"></div>
@@ -935,8 +980,8 @@ function updateInvestmentsList() {
         return `
             <div class="investment-item">
                 <div class="investment-header">
-                    <h4 class="investment-name">${inv.name}</h4>
-                    <span class="investment-type">${inv.type}</span>
+                    <h4 class="investment-name">${escapeHTML(inv.name)}</h4>
+                    <span class="investment-type">${escapeHTML(inv.type)}</span>
                 </div>
                 <div class="investment-details">
                     <div class="investment-detail">
@@ -1037,8 +1082,8 @@ function updateCreditCardsList() {
                     <i class="fas fa-credit-card"></i>
                 </div>
                 <div class="transaction-details">
-                    <h4>${card.cardName} - ${card.description}</h4>
-                    <p>${card.category}</p>
+                    <h4>${escapeHTML(card.cardName)} - ${escapeHTML(card.description)}</h4>
+                    <p>${escapeHTML(card.category)}</p>
                     <small>${formatDate(card.date)} - ${card.installments}x de R$ ${card.installmentAmount.toFixed(2)}</small>
                 </div>
             </div>
@@ -1247,8 +1292,8 @@ function updateBillsList() {
                         <i class="fas fa-file-invoice-dollar"></i>
                     </div>
                     <div class="transaction-details">
-                        <h4>${bill.type}</h4>
-                        <p>${bill.notes || 'Sem observações'}</p>
+                        <h4>${escapeHTML(bill.type)}</h4>
+                        <p>${escapeHTML(bill.notes || 'Sem observações')}</p>
                         <small>Vencimento: dia ${bill.dueDay}</small>
                     </div>
                 </div>
@@ -1261,7 +1306,7 @@ function updateBillsList() {
                         ${status.text}
                     </span>
                     ${!isPaid ? `
-                        <button class="btn-mark-paid" onclick="markBillAsPaid('${bill.id}', ${currentMonth}, ${currentYear})">
+                        <button class="btn-mark-paid" onclick="markBillAsPaid('${escapeHTML(bill.id)}', ${currentMonth}, ${currentYear})">
                             <i class="fas fa-check"></i> Marcar como Pago
                         </button>
                     ` : ''}
@@ -1313,7 +1358,7 @@ function updateBillsCalendar() {
                     <div class="calendar-day-bills">
                         ${bills.map(bill => {
                             const status = getBillStatus(bill);
-                            return `<span class="calendar-bill-tag ${status.class}">${bill.type}</span>`;
+                            return `<span class="calendar-bill-tag ${status.class}">${escapeHTML(bill.type)}</span>`;
                         }).join('')}
                     </div>
                 </div>
@@ -1370,7 +1415,7 @@ function updateCategoriesList() {
     container.innerHTML = DB.categories.map(cat => `
         <div class="category-item">
             <div class="category-info">
-                <span>${cat.name}</span>
+                <span>${escapeHTML(cat.name)}</span>
                 <span class="category-badge ${cat.type}">${cat.type === 'income' ? 'Receita' : 'Despesa'}</span>
             </div>
         </div>
@@ -1422,35 +1467,110 @@ function handleBackup() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `fincontrol-backup-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `fincontrol-backup-${todayISO()}.json`;
     link.click();
     
     notify.success('Backup realizado com sucesso!');
 }
 
+const USER_COLLECTIONS = ['transactions', 'budgets', 'goals', 'investments', 'creditCards', 'monthlyBills', 'categories'];
+
+// Apaga todos os documentos das coleções do usuário no Firestore.
+async function deleteAllUserDocs(userId) {
+    const refs = [];
+    for (const collection of USER_COLLECTIONS) {
+        const snapshot = await window.db.collection('users').doc(userId).collection(collection).get();
+        snapshot.docs.forEach(doc => refs.push(doc.ref));
+    }
+    await commitInChunks(refs, (batch, ref) => batch.delete(ref));
+}
+
+// Grava as categorias padrão no Firestore e devolve a lista com ids.
+async function seedDefaultCategories(userId) {
+    const colRef = window.db.collection('users').doc(userId).collection('categories');
+    const items = DEFAULT_CATEGORIES.map(cat => ({ ref: colRef.doc(), ...cat }));
+    await commitInChunks(items, (batch, it) => batch.set(it.ref, {
+        name: it.name,
+        type: it.type,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }));
+    return items.map(it => ({ id: it.ref.id, name: it.name, type: it.type }));
+}
+
+// Re-renderiza a página que está aberta.
+function refreshCurrentPage() {
+    const active = document.querySelector('.nav-item.active[data-page]');
+    navigateTo(active ? active.dataset.page : 'dashboard');
+}
+
 function handleRestore(e) {
-    const file = e.target.files[0];
+    const input = e.target;
+    const file = input.files[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
+        let data;
         try {
-            const data = JSON.parse(event.target.result);
-            
-            if (confirm('Tem certeza que deseja restaurar este backup? Os dados atuais serão substituídos.')) {
-                DB.transactions = data.transactions || [];
-                DB.budgets = data.budgets || [];
-                DB.goals = data.goals || [];
-                DB.investments = data.investments || [];
-                DB.creditCards = data.creditCards || [];
-                DB.monthlyBills = data.monthlyBills || [];
-                DB.categories = data.categories || DEFAULT_CATEGORIES;
-                
-                notify.success('Backup restaurado com sucesso!');
-                updateDashboard();
-            }
+            data = JSON.parse(event.target.result);
+            const valid = data && typeof data === 'object' && !Array.isArray(data) &&
+                USER_COLLECTIONS.some(c => Array.isArray(data[c])) &&
+                USER_COLLECTIONS.every(c => data[c] === undefined || Array.isArray(data[c]));
+            if (!valid) throw new Error('Formato inválido');
         } catch (error) {
             notify.error('Erro ao restaurar backup. Arquivo inválido.');
+            input.value = '';
+            return;
+        }
+
+        if (!confirm('Tem certeza que deseja restaurar este backup? Os dados atuais serão substituídos.')) {
+            input.value = '';
+            return;
+        }
+
+        try {
+            const userId = window.auth.currentUser.uid;
+            notify.info('Restaurando backup, aguarde…');
+
+            await deleteAllUserDocs(userId);
+
+            // Grava cada item no Firestore, mantendo o id original quando existir.
+            const writes = [];
+            const restored = {};
+            for (const collection of USER_COLLECTIONS) {
+                restored[collection] = [];
+                const items = Array.isArray(data[collection]) ? data[collection] : [];
+                const colRef = window.db.collection('users').doc(userId).collection(collection);
+                items.forEach(item => {
+                    if (!item || typeof item !== 'object') return;
+                    const { id, userId: _ignored, createdAt: _created, ...fields } = item;
+                    const ref = (typeof id === 'string' && id && !id.includes('/')) ? colRef.doc(id) : colRef.doc();
+                    writes.push({ ref, fields });
+                    restored[collection].push(collection === 'categories'
+                        ? { id: ref.id, ...fields }
+                        : { id: ref.id, userId, ...fields });
+                });
+            }
+            await commitInChunks(writes, (batch, w) => batch.set(w.ref, {
+                ...w.fields,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            }));
+
+            DB.transactions = restored.transactions;
+            DB.budgets = restored.budgets;
+            DB.goals = restored.goals;
+            DB.investments = restored.investments;
+            DB.creditCards = restored.creditCards;
+            DB.monthlyBills = restored.monthlyBills;
+            DB.categories = restored.categories.length ? restored.categories : await seedDefaultCategories(userId);
+
+            notify.success('Backup restaurado com sucesso!');
+            refreshCurrentPage();
+        } catch (error) {
+            console.error('Erro ao restaurar backup:', error);
+            notify.error('Erro ao salvar o backup na nuvem. Recarregue a página e tente novamente.');
+        } finally {
+            input.value = '';
         }
     };
     reader.readAsText(file);
@@ -1460,28 +1580,16 @@ async function handleClearData() {
     if (!confirm('⚠️ ATENÇÃO! Esta ação irá apagar TODOS os seus dados permanentemente. Deseja continuar?')) {
         return;
     }
-    
+
     if (!confirm('Tem CERTEZA ABSOLUTA? Esta ação NÃO pode ser desfeita!')) {
         return;
     }
-    
+
     try {
         const userId = window.auth.currentUser.uid;
-        
-        // Limpar dados do Firebase
-        const batch = window.db.batch();
-        
-        const collections = ['transactions', 'budgets', 'goals', 'investments', 'creditCards', 'monthlyBills'];
-        
-        for (const collection of collections) {
-            const snapshot = await window.db.collection('users').doc(userId).collection(collection).get();
-            snapshot.docs.forEach(doc => {
-                batch.delete(doc.ref);
-            });
-        }
-        
-        await batch.commit();
-        
+
+        await deleteAllUserDocs(userId);
+
         // Limpar dados locais
         DB.transactions = [];
         DB.budgets = [];
@@ -1489,10 +1597,11 @@ async function handleClearData() {
         DB.investments = [];
         DB.creditCards = [];
         DB.monthlyBills = [];
-        
+        DB.categories = await seedDefaultCategories(userId);
+
         notify.success('Todos os dados foram apagados com sucesso!');
-        updateDashboard();
-        
+        refreshCurrentPage();
+
     } catch (error) {
         console.error('Erro ao limpar dados:', error);
         notify.error('Erro ao limpar dados');
@@ -1516,7 +1625,7 @@ function hideAlert(id) {
 }
 
 function formatDate(dateString) {
-    const date = new Date(dateString);
+    const date = parseLocalDate(dateString);
     return date.toLocaleDateString('pt-BR', { 
         day: '2-digit', 
         month: 'long', 
