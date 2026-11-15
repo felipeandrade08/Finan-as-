@@ -7,16 +7,16 @@ O projeto reúne em um só lugar o acompanhamento de receitas, despesas, orçame
 ## Funcionalidades
 
 - **Dashboard:** visão geral das receitas, despesas e saldo.
-- **Lançamentos:** registro e organização de receitas e despesas.
+- **Lançamentos:** registro, edição e exclusão de receitas e despesas, com busca e filtros por tipo, categoria e mês.
 - **Relatórios:** gráficos de evolução financeira e distribuição de gastos.
 - **Orçamentos:** acompanhamento de limites e gastos por categoria.
-- **Metas:** controle do progresso de objetivos financeiros.
+- **Metas:** controle do progresso de objetivos financeiros, com registro do valor guardado.
 - **Investimentos:** organização e visualização da carteira.
 - **Cartões e contas:** acompanhamento de compromissos financeiros.
 - **Exportação:** geração de relatórios em PDF e planilhas Excel.
 - **Backup:** exportação e restauração dos dados em JSON.
 - **Personalização:** tema claro, escuro e automático.
-- **PWA:** instalação e suporte básico para uso offline.
+- **PWA:** instalação no dispositivo e abertura offline da interface (os dados financeiros exigem conexão).
 
 ## Tecnologias
 
@@ -40,7 +40,7 @@ O projeto reúne em um só lugar o acompanhamento de receitas, despesas, orçame
 | `app-export.js` | Exportação PDF e Excel |
 | `manifest.json` | Metadados e configuração de instalação PWA |
 | `sw.js` | Cache dos recursos e estratégia offline |
-| `icon-*.png`, `logo-mark.png` | Ícones e identidade visual |
+| `icon.svg`, `icon-*.png`, `favicon-48.png`, `apple-touch-icon.png`, `logo-fincontrol-pro.svg` | Ícones e identidade visual |
 
 ## Executar localmente
 

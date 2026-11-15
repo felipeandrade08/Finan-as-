@@ -1,8 +1,10 @@
 {
+  "id": "./",
   "name": "FinControl Pro - Controle Financeiro",
   "short_name": "FinControl",
   "description": "Sistema completo de gestão financeira pessoal",
-  "start_url": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0d151c",
   "theme_color": "#06b6d4",
@@ -33,20 +35,6 @@
       "purpose": "any"
     }
   ],
-  "screenshots": [
-    {
-      "src": "screenshot-mobile.png",
-      "sizes": "540x720",
-      "type": "image/png",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "screenshot-desktop.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide"
-    }
-  ],
   "categories": [
     "finance",
     "productivity"
@@ -54,21 +42,24 @@
   "shortcuts": [
     {
       "name": "Nova Transação",
-      "url": "/?action=transaction",
+      "short_name": "Lançar",
+      "url": "./?action=transaction",
       "icons": [
         {
-          "src": "icon-add.png",
-          "sizes": "96x96"
+          "src": "icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     },
     {
       "name": "Dashboard",
-      "url": "/?action=dashboard",
+      "url": "./?action=dashboard",
       "icons": [
         {
-          "src": "icon-dashboard.png",
-          "sizes": "96x96"
+          "src": "icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     }

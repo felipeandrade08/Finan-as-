@@ -108,7 +108,7 @@ function updateEvolutionChart() {
                     borderWidth: 1,
                     callbacks: {
                         label: function(context) {
-                            return context.dataset.label + ': R$ ' + context.parsed.y.toFixed(2);
+                            return context.dataset.label + ': ' + formatCurrency(context.parsed.y);
                         }
                     }
                 }
@@ -118,7 +118,7 @@ function updateEvolutionChart() {
                     beginAtZero: true,
                     ticks: {
                         callback: function(value) {
-                            return 'R$ ' + value.toFixed(0);
+                            return 'R$ ' + Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
                         },
                         font: {
                             size: 12,
@@ -216,8 +216,8 @@ function updateCategoryPieChart() {
                     callbacks: {
                         label: function(context) {
                             const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = ((context.parsed / total) * 100).toFixed(1);
-                            return context.label + ': R$ ' + context.parsed.toFixed(2) + ' (' + percentage + '%)';
+                            const percentage = ((context.parsed / total) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+                            return context.label + ': ' + formatCurrency(context.parsed) + ' (' + percentage + '%)';
                         }
                     }
                 }
@@ -286,7 +286,7 @@ function updateComparisonChart() {
                     padding: 16,
                     callbacks: {
                         label: function(context) {
-                            return context.dataset.label + ': R$ ' + context.parsed.y.toFixed(2);
+                            return context.dataset.label + ': ' + formatCurrency(context.parsed.y);
                         }
                     }
                 }
@@ -296,7 +296,7 @@ function updateComparisonChart() {
                     beginAtZero: true,
                     ticks: {
                         callback: function(value) {
-                            return 'R$ ' + value.toFixed(0);
+                            return 'R$ ' + Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
                         },
                         font: {
                             size: 12,
@@ -383,7 +383,7 @@ function updateCashFlowChart() {
                     padding: 16,
                     callbacks: {
                         label: function(context) {
-                            return 'Saldo Acumulado: R$ ' + context.parsed.y.toFixed(2);
+                            return 'Saldo Acumulado: ' + formatCurrency(context.parsed.y);
                         }
                     }
                 }
@@ -392,7 +392,7 @@ function updateCashFlowChart() {
                 y: {
                     ticks: {
                         callback: function(value) {
-                            return 'R$ ' + value.toFixed(0);
+                            return 'R$ ' + Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
                         },
                         font: {
                             size: 12,
