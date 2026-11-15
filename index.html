@@ -260,13 +260,16 @@
           </select>
         </div>
         <p class="hero-amount" id="total-balance">R$ 0,00</p>
+        <p class="hero-free hidden" id="hero-free"></p>
         <div class="hero-bar" id="hero-bar" role="img" aria-label="Sem lançamentos no período">
           <span class="hero-bar-spent" id="hero-bar-spent"></span>
+          <span class="hero-bar-saved" id="hero-bar-saved"></span>
         </div>
         <p class="hero-caption" id="expense-percentage"></p>
         <dl class="hero-figures">
           <div><dt>Entrou</dt><dd class="income" id="total-income">R$ 0,00</dd></div>
           <div><dt>Saiu</dt><dd class="expense" id="total-expense">R$ 0,00</dd></div>
+          <div id="saved-figure" class="hidden"><dt>Guardado em metas</dt><dd class="saved" id="total-saved">R$ 0,00</dd></div>
         </dl>
       </section>
 
@@ -514,6 +517,7 @@
 
       <div class="card">
         <h3 class="card-title">Suas metas</h3>
+        <p class="card-note" id="goals-month-note"></p>
         <div id="goals-list"></div>
       </div>
     </div>

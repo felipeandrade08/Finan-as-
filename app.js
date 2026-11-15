@@ -830,8 +830,31 @@ function updateDashboard() {
         : totals.expense > 0 ? 'Nenhuma entrada registrada no período'
         : 'Nenhum lançamento no período';
 
+    // Guardado em metas no período: separado do que sobrou, sem contar como gasto.
+    const saved = getSavedInGoals();
+    const savedFigure = document.getElementById('saved-figure');
+    if (savedFigure) {
+        savedFigure.classList.toggle('hidden', DB.goals.length === 0);
+        savedFigure.querySelector('dt').textContent = saved < 0 ? 'Retirado de metas' : 'Guardado em metas';
+        document.getElementById('total-saved').textContent = formatCurrency(Math.abs(saved));
+    }
+    const free = document.getElementById('hero-free');
+    if (free) {
+        free.classList.toggle('hidden', saved <= 0 || negative);
+        free.textContent = saved <= totals.balance
+            ? `${formatCurrency(totals.balance - saved)} livres depois de guardar ${formatCurrency(saved)} nas metas`
+            : `Você guardou ${formatCurrency(saved)} nas metas, mais do que sobrou ${getPeriodInfo().phrase}`;
+    }
+
     const bar = document.getElementById('hero-bar');
     const spent = document.getElementById('hero-bar-spent');
+    const savedBar = document.getElementById('hero-bar-saved');
+    if (savedBar) {
+        const spentPct = Math.min(spentRatio, 1) * 100;
+        const savedPct = totals.income > 0 && saved > 0 ? Math.min((saved / totals.income) * 100, 100 - spentPct) : 0;
+        savedBar.style.left = `${spentPct}%`;
+        savedBar.style.width = `${savedPct}%`;
+    }
     if (bar && spent) {
         spent.style.width = `${Math.min(spentRatio, 1) * 100}%`;
         bar.classList.toggle('is-over', spentRatio > 1);
@@ -944,32 +967,37 @@ function calculateTotals() {
     return { income, expense, balance: income - expense };
 }
 
-function getFilteredTransactions() {
-    const transactions = getLedger();
+// Intervalo de datas do período escolhido no Início (null = tudo).
+function getPeriodRange() {
     const now = new Date();
-    let start, end;
-
     switch (currentFilter) {
         case 'week':
-            start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
-            end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            break;
+            return { start: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6), end: new Date(now.getFullYear(), now.getMonth(), now.getDate()) };
         case 'month':
-            start = new Date(now.getFullYear(), now.getMonth(), 1);
-            end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-            break;
+            return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth() + 1, 0) };
         case 'year':
-            start = new Date(now.getFullYear(), 0, 1);
-            end = new Date(now.getFullYear(), 11, 31);
-            break;
+            return { start: new Date(now.getFullYear(), 0, 1), end: new Date(now.getFullYear(), 11, 31) };
         default:
-            return transactions;
+            return null;
     }
+}
 
-    return transactions.filter(t => {
-        const d = parseLocalDate(t.date);
-        return d >= start && d <= end;
-    });
+function inPeriod(dateValue, range = getPeriodRange()) {
+    if (!range) return true;
+    const d = parseLocalDate(dateValue);
+    return d >= range.start && d <= range.end;
+}
+
+function getFilteredTransactions() {
+    const range = getPeriodRange();
+    return getLedger().filter(t => inPeriod(t.date, range));
+}
+
+// Total guardado em metas no período (depósitos menos retiradas).
+// Guardar não é gasto: esse valor não entra em "Saiu", só mostra quanto do que sobrou foi separado.
+function getSavedInGoals(range = getPeriodRange()) {
+    return round2(DB.goals.reduce((sum, g) =>
+        sum + (g.deposits || []).filter(d => inPeriod(d.date, range)).reduce((s2, d) => s2 + (Number(d.amount) || 0), 0), 0));
 }
 
 // ========== ORÇAMENTOS ==========
@@ -1112,9 +1140,19 @@ function updateGoalsList() {
         return;
     }
 
+    const monthRange = { start: new Date(new Date().getFullYear(), new Date().getMonth(), 1), end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0) };
+    const note = document.getElementById('goals-month-note');
+    if (note) {
+        const savedMonth = getSavedInGoals(monthRange);
+        note.textContent = savedMonth > 0
+            ? `Guardado em ${currentMonthName()}: ${formatCurrency(savedMonth)}. Esse valor não conta como gasto.`
+            : `Nada guardado em ${currentMonthName()} ainda. Use o + de uma meta para registrar um depósito.`;
+    }
+
     container.innerHTML = DB.goals.map(g => {
         const percentage = (g.currentAmount / g.targetAmount) * 100;
-        const remaining = g.targetAmount - g.currentAmount;
+        const remaining = Math.max(g.targetAmount - g.currentAmount, 0);
+        const last = (g.deposits || []).slice(-1)[0];
         
         return `
             <div class="goal-item">
@@ -1142,6 +1180,7 @@ function updateGoalsList() {
                         <span>${formatDate(g.deadline)}</span>
                     </div>
                 </div>
+                ${last ? `<p class="goal-last">${last.amount > 0 ? 'Último depósito' : 'Última retirada'}: ${formatCurrency(Math.abs(last.amount))} em ${formatShortDate(last.date)}</p>` : ''}
             </div>
         `;
     }).join('');
@@ -2366,25 +2405,37 @@ async function deleteRecord(collection, id) {
 async function addToGoal(id) {
     const goal = DB.goals.find(g => g.id === id);
     if (!goal) return;
-    const input = prompt(`Quanto você quer adicionar à meta "${goal.name}"? (use valor negativo para retirar)`, '');
+    const input = prompt(`Quanto você guardou para "${goal.name}"? Para retirar, use um valor negativo (ex.: -100).`, '');
     if (input === null) return;
     const value = parseAmount(input);
     if (!Number.isFinite(value) || value === 0) {
         notify.error('Informe um valor válido.');
         return;
     }
-    const currentAmount = Math.max(0, Math.round(((goal.currentAmount || 0) + value) * 100) / 100);
+    const currentAmount = Math.max(0, round2((goal.currentAmount || 0) + value));
+    // Registra o movimento real (uma retirada não passa do que estava guardado).
+    const delta = round2(currentAmount - (goal.currentAmount || 0));
+    if (delta === 0) {
+        notify.error('A meta não tem saldo para retirar.');
+        return;
+    }
+    const deposits = [...(goal.deposits || []), { date: todayISO(), amount: delta }];
     try {
         const userId = window.auth.currentUser.uid;
         await window.db.collection('users').doc(userId).collection('goals').doc(id).update({
             currentAmount,
+            deposits,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         goal.currentAmount = currentAmount;
+        goal.deposits = deposits;
         EDITABLE.goals.refresh();
+        updateDashboard();
         notify.success(currentAmount >= goal.targetAmount
-            ? `🎉 Meta "${goal.name}" atingida!`
-            : `Meta atualizada: ${formatCurrency(currentAmount)} de ${formatCurrency(goal.targetAmount)}.`);
+            ? `Meta "${goal.name}" atingida. Parabéns!`
+            : delta > 0
+                ? `${formatCurrency(delta)} guardados em "${goal.name}". Agora são ${formatCurrency(currentAmount)} de ${formatCurrency(goal.targetAmount)}.`
+                : `${formatCurrency(-delta)} retirados de "${goal.name}".`);
     } catch (error) {
         console.error('Erro ao atualizar meta:', error);
         notify.error('Erro ao atualizar a meta.');

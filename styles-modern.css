@@ -53,6 +53,7 @@
   --bar-track:     #CDEFE5;
   --bar-left:      #5EE0C4;
   --bar-spent:     #0B3B3C;
+  --bar-saved:     #0E8A73;
 
   /* Gráficos */
   --chart-grid:    #E6EDEB;
@@ -120,6 +121,7 @@ html.dark-theme {
   --bar-track:     rgba(94, 224, 196, .18);
   --bar-left:      #5EE0C4;
   --bar-spent:     #2C6E6A;
+  --bar-saved:     #D3F7EE;
 
   --chart-grid:    #1C3D3E;
   --chart-fill:    rgba(94, 224, 196, .14);
@@ -484,6 +486,14 @@ label.btn { cursor: pointer; }
   border-radius: var(--r-pill) 0 0 var(--r-pill);
   transition: width 700ms var(--ease);
 }
+.hero-bar-saved {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 0;
+  background: var(--bar-saved);
+  transition: width 700ms var(--ease), left 700ms var(--ease);
+}
+.hero-free { margin: -12px 0 18px; font-size: var(--fs-15); color: var(--text-muted); }
+.hero-figures dd.saved { color: var(--accent); }
+.goal-last { margin-top: 10px; font-size: var(--fs-13); color: var(--text-faint); }
 .hero-bar.is-over { background: var(--expense); }
 .hero-bar.is-over .hero-bar-spent { background: var(--bar-spent); }
 .hero-bar.is-empty { background: var(--bar-track); }
