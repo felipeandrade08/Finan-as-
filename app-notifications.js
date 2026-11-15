@@ -138,16 +138,14 @@ function checkBillsNotifications() {
 // ========== VERIFICAR ORÇAMENTOS EXCEDIDOS ==========
 function checkBudgetNotifications() {
     DB.budgets.forEach(budget => {
-        const spent = DB.transactions
-            .filter(t => t.type === 'expense' && t.category === budget.category)
-            .reduce((sum, t) => sum + t.amount, 0);
+        const spent = getMonthSpending(budget.category);
         
         const percentage = (spent / budget.amount) * 100;
         
         if (percentage >= 100) {
-            notify.once(`Orçamento de "${budget.category}" excedido! Gasto: ${formatCurrency(spent)} / ${formatCurrency(budget.amount)}`, 'error', `Orçamento de "${budget.category}" excedido! Gasto: ${formatCurrency(spent)} / ${formatCurrency(budget.amount)}`);
+            notify.once(`Orçamento de "${budget.category}" estourado em ${currentMonthName()}: ${formatCurrency(spent)} de ${formatCurrency(budget.amount)}.`, 'error', `Orçamento de "${budget.category}" estourado em ${currentMonthName()}: ${formatCurrency(spent)} de ${formatCurrency(budget.amount)}.`);
         } else if (percentage >= 80) {
-            notify.once(`Orçamento de "${budget.category}" em 80%! Gasto: ${formatCurrency(spent)} / ${formatCurrency(budget.amount)}`, 'warning', `Orçamento de "${budget.category}" em 80%! Gasto: ${formatCurrency(spent)} / ${formatCurrency(budget.amount)}`);
+            notify.once(`Orçamento de "${budget.category}" passou de 80% em ${currentMonthName()}: ${formatCurrency(spent)} de ${formatCurrency(budget.amount)}.`, 'warning', `Orçamento de "${budget.category}" passou de 80% em ${currentMonthName()}: ${formatCurrency(spent)} de ${formatCurrency(budget.amount)}.`);
         }
     });
 }

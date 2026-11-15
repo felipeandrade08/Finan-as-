@@ -522,6 +522,7 @@ label.btn { cursor: pointer; }
 .card-header-flex .card-title { margin-bottom: 0; }
 .form-toggle { display: none; }
 .card-note { color: var(--text-muted); font-size: var(--fs-14); margin: -10px 0 14px; }
+.form-card .card-note { margin-top: 0; }
 
 .grid-2 {
   display: grid;
@@ -590,6 +591,16 @@ label.btn { cursor: pointer; }
 .transaction-amount.expense { color: var(--expense); }
 .bill-item .transaction-amount.expense { color: var(--text); }
 .bill-item .transaction-icon.expense { background: var(--surface-alt); color: var(--text-muted); }
+.tag-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: var(--fs-12); font-weight: 600; color: var(--text-muted);
+  background: var(--surface-alt); padding: 3px 10px; border-radius: var(--r-pill);
+}
+.tag-btn:hover { color: var(--text); }
+.installment-track { display: flex; gap: 3px; margin-top: 8px; max-width: 220px; }
+.installment-track span { flex: 1; height: 5px; border-radius: 2px; background: var(--surface-alt); }
+.installment-track span.paid { background: var(--accent); }
+.transaction-item.is-done { opacity: .62; }
 .item-end { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
 .item-actions, .item-header-right { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .item-header-right { gap: 8px; }
@@ -863,6 +874,7 @@ label.btn { cursor: pointer; }
   .form-card.is-collapsed { padding-top: 14px; padding-bottom: 14px; }
   .form-card.is-collapsed .form-toggle { margin: 0; }
   .form-card.is-collapsed > form { display: none; }
+  .form-card.is-collapsed > .card-note { display: none; }
 
   .stat-strip { grid-template-columns: 1fr; }
   .stat-strip > div + div { border-left: 0; border-top: 1px solid var(--border); }

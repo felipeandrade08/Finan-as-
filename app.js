@@ -521,6 +521,7 @@ function showMainApp() {
     // Atalhos do app instalado: ./?action=transaction abre direto em Lançamentos.
     const action = new URLSearchParams(location.search).get('action');
     const shortcutPages = { transaction: 'transactions', dashboard: 'dashboard' };
+    fillDefaultDates();
     navigateTo(shortcutPages[action] || 'dashboard');
     if (action) history.replaceState(null, '', location.pathname);
     if (action === 'transaction') {
@@ -625,13 +626,14 @@ function updateTransactionsList() {
     if (!container) return;
     
     updateFilterCategoryOptions();
-    const transactions = applyTransactionFilters(DB.transactions);
+    const ledger = getLedger();
+    const transactions = applyTransactionFilters(ledger);
     const filtersActive = ['filter-search', 'filter-type', 'filter-category', 'filter-month']
         .some(id => document.getElementById(id)?.value);
     document.getElementById('filter-clear')?.classList.toggle('hidden', !filtersActive);
     const summary = document.getElementById('transactions-summary');
 
-    if (DB.transactions.length === 0) {
+    if (ledger.length === 0) {
         if (summary) summary.textContent = '';
         container.innerHTML = `
             <div class="empty-state">
@@ -682,7 +684,9 @@ function updateTransactionsList() {
                 <div class="transaction-amount ${t.type}">
                     ${t.type === 'income' ? '+' : '-'} ${formatCurrency(t.amount)}
                 </div>
-                ${itemActions('transactions', t.id)}
+                ${t.virtual === 'card'
+                    ? `<button type="button" class="tag-btn" data-goto="credit-cards" title="Parcela de compra no cartão ${escapeHTML(t.cardName)}"><i class="fas fa-credit-card" aria-hidden="true"></i> Cartão</button>`
+                    : itemActions('transactions', t.id)}
             </div>
         </div>
     `).join('');
@@ -725,7 +729,7 @@ function updateFilterCategoryOptions() {
     const select = document.getElementById('filter-category');
     if (!select) return;
     const current = select.value;
-    const names = [...new Set([...DB.categories.map(c => c.name), ...DB.transactions.map(t => t.category)])]
+    const names = [...new Set([...DB.categories.map(c => c.name), ...getLedger().map(t => t.category)])]
         .filter(Boolean)
         .sort((a, b) => a.localeCompare(b, 'pt-BR'));
     select.innerHTML = '<option value="">Todas</option>';
@@ -858,7 +862,7 @@ function updateRecentTransactions() {
     const container = document.getElementById('recent-transactions');
     if (!container) return;
 
-    const transactions = sortByDate(DB.transactions).slice(-6).reverse();
+    const transactions = sortByDate(getLedger()).slice(-6).reverse();
 
     if (transactions.length === 0) {
         container.innerHTML = `
@@ -895,7 +899,7 @@ function calculateTotals() {
 }
 
 function getFilteredTransactions() {
-    const transactions = DB.transactions;
+    const transactions = getLedger();
     const now = new Date();
     let start, end;
 
@@ -947,31 +951,33 @@ async function handleAddBudget(e) {
 function updateBudgetsList() {
     const container = document.getElementById('budgets-list');
     if (!container) return;
-    
+
     if (DB.budgets.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
-                <i class="fas fa-credit-card"></i>
-                <p>Nenhum orçamento definido</p>
+                <i class="fas fa-wallet"></i>
+                <p>Nenhum orçamento definido. Escolha uma categoria e um limite por mês.</p>
             </div>
         `;
         return;
     }
 
+    const month = currentMonthName();
+    const note = document.getElementById('budgets-month-note');
+    if (note) note.textContent = `Gastos de ${month}, incluindo as parcelas do cartão que vencem neste mês.`;
     container.innerHTML = DB.budgets.map(b => {
-        const spent = DB.transactions
-            .filter(t => t.type === 'expense' && t.category === b.category)
-            .reduce((sum, t) => sum + t.amount, 0);
-        
-        const percentage = (spent / b.amount) * 100;
+        // Orçamento é mensal: conta só os gastos do mês atual (incluindo parcelas do cartão).
+        const spent = getMonthSpending(b.category);
+        const percentage = b.amount > 0 ? (spent / b.amount) * 100 : 0;
         const status = percentage >= 100 ? 'danger' : percentage >= 80 ? 'warning' : 'success';
-        
+        const left = b.amount - spent;
+
         return `
             <div class="budget-item">
                 <div class="budget-header">
                     <h4 class="budget-name">${escapeHTML(b.category)}</h4>
                     <div class="item-header-right">
-                        <span class="budget-percentage ${status}">${percentage.toFixed(0)}%</span>
+                        <span class="budget-percentage ${status}">${Math.round(percentage)}%</span>
                         ${itemActions('budgets', b.id)}
                     </div>
                 </div>
@@ -979,8 +985,8 @@ function updateBudgetsList() {
                     <div class="progress-fill ${status}" style="width: ${Math.min(percentage, 100)}%"></div>
                 </div>
                 <div class="budget-info">
-                    <span>Gasto: ${formatCurrency(spent)}</span>
-                    <span>Limite: ${formatCurrency(b.amount)}</span>
+                    <span>${formatCurrency(spent)} de ${formatCurrency(b.amount)}</span>
+                    <span class="${left < 0 ? 'expense' : ''}">${left >= 0 ? `Restam ${formatCurrency(left)}` : `Passou ${formatCurrency(-left)}`}</span>
                 </div>
             </div>
         `;
@@ -1224,7 +1230,7 @@ async function handleAddCreditCard(e) {
 function updateCreditCardsList() {
     const container = document.getElementById('credit-cards-list');
     if (!container) return;
-    
+
     if (DB.creditCards.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
@@ -1235,22 +1241,44 @@ function updateCreditCardsList() {
         return;
     }
 
-    container.innerHTML = DB.creditCards.map(card => `
-        <div class="transaction-item">
+    const now = new Date();
+    const monthKey = now.getFullYear() * 12 + now.getMonth();
+    const keyOf = (iso) => { const d = parseLocalDate(iso); return d.getFullYear() * 12 + d.getMonth(); };
+
+    // Compras em andamento primeiro; quitadas por último.
+    const rows = DB.creditCards.map(card => {
+        const installments = getInstallments(card);
+        const current = installments.find(i => keyOf(i.date) === monthKey);
+        const paid = installments.filter(i => keyOf(i.date) <= monthKey);
+        const remaining = installments.filter(i => keyOf(i.date) > monthKey).reduce((sum, i) => sum + i.amount, 0);
+        const done = paid.length === installments.length && !current;
+        let status;
+        if (current) status = `Parcela ${current.number} de ${current.count} em ${currentMonthName()}: ${formatCurrency(current.amount)}`;
+        else if (done) status = 'Quitada';
+        else status = `Começa em ${parseLocalDate(installments[0].date).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`;
+        return { card, installments, current, paid, remaining, done, status };
+    }).sort((a, b) => (a.done - b.done) || (parseLocalDate(b.card.date) - parseLocalDate(a.card.date)));
+
+    container.innerHTML = rows.map(({ card, installments, paid, remaining, done, status }) => `
+        <div class="transaction-item ${done ? 'is-done' : ''}">
             <div class="transaction-info">
                 <div class="transaction-icon expense">
                     <i class="fas fa-credit-card"></i>
                 </div>
                 <div class="transaction-details">
-                    <h4>${escapeHTML(card.cardName)} - ${escapeHTML(card.description)}</h4>
-                    <p>${escapeHTML(card.category)}</p>
-                    <small>${formatDate(card.date)} - ${card.installments}x de ${formatCurrency(card.installmentAmount)}</small>
+                    <h4>${escapeHTML(card.description)}</h4>
+                    <p>${escapeHTML(card.cardName)}, ${escapeHTML(card.category || 'Compras')}</p>
+                    <small>${escapeHTML(status)}</small>
+                    ${installments.length > 1 ? `
+                    <div class="installment-track" aria-label="${paid.length} de ${installments.length} parcelas">
+                        ${installments.map(i => `<span class="${keyOf(i.date) <= monthKey ? 'paid' : ''}"></span>`).join('')}
+                    </div>` : ''}
                 </div>
             </div>
             <div class="item-end">
-                <div class="transaction-amount expense">
-                    ${formatCurrency(card.totalAmount)}
-                </div>
+                <div class="transaction-amount expense">${formatCurrency(card.totalAmount)}</div>
+                <span class="mini-sub">${done ? 'Tudo pago' : `${installments.length}x de ${formatCurrency(installments[0].amount)}`}</span>
+                ${remaining > 0 ? `<span class="mini-sub">Faltam ${formatCurrency(remaining)}</span>` : ''}
                 ${itemActions('creditCards', card.id)}
             </div>
         </div>
@@ -1283,34 +1311,90 @@ async function handleAddBill(e) {
     }
 }
 
+// Categoria do lançamento gerado ao pagar uma conta.
+const BILL_CATEGORY = {
+    'Aluguel': 'Moradia', 'Condomínio': 'Moradia', 'Plano de Saúde': 'Saúde',
+    'Academia': 'Saúde', 'Escola': 'Educação', 'TV/Streaming': 'Lazer'
+};
+
+function billCategory(bill) {
+    const exists = (name) => DB.categories.some(c => c.name === name && c.type === 'expense');
+    const preferred = BILL_CATEGORY[bill.type];
+    if (preferred && exists(preferred)) return preferred;
+    if (exists(bill.type)) return bill.type;
+    return 'Contas';
+}
+
+// Marca a conta do mês como paga e registra a despesa em Lançamentos.
 async function markBillAsPaid(billId, month, year) {
+    const bill = DB.monthlyBills.find(b => b.id === billId);
+    if (!bill) return;
+
+    // O valor cadastrado é uma média: pergunta quanto foi pago de fato.
+    const input = prompt(`Quanto você pagou de ${bill.type}?`, String(bill.amount).replace('.', ','));
+    if (input === null) return;
+    const amount = parseAmount(input);
+    if (!(amount > 0)) {
+        notify.error('Informe o valor pago, por exemplo 180,50.');
+        return;
+    }
+
     try {
         const userId = window.auth.currentUser.uid;
-        const bill = DB.monthlyBills.find(b => b.id === billId);
-        
-        if (!bill) return;
-        
-        const payment = {
-            month,
-            year,
-            paidAt: new Date().toISOString(),
-            amount: bill.amount
+        const userRef = window.db.collection('users').doc(userId);
+        const transaction = {
+            type: 'expense',
+            amount,
+            category: billCategory(bill),
+            date: todayISO(),
+            description: bill.notes ? `${bill.type} (${bill.notes})` : bill.type,
+            billId
         };
-        
-        if (!bill.payments) bill.payments = [];
-        bill.payments.push(payment);
-        
-        await window.db.collection('users').doc(userId)
-            .collection('monthlyBills').doc(billId)
-            .update({
-                payments: firebase.firestore.FieldValue.arrayUnion(payment)
-            });
-        
+        const txRef = await userRef.collection('transactions').add({
+            ...transaction,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        DB.transactions.push({ id: txRef.id, userId, ...transaction });
+
+        const payment = { month, year, paidAt: new Date().toISOString(), amount, transactionId: txRef.id };
+        const payments = [...(bill.payments || []), payment];
+        await userRef.collection('monthlyBills').doc(billId).update({ payments });
+        bill.payments = payments;
+
         updateBillsList();
-        notify.success('Conta marcada como paga!');
-        
+        checkBillsAlerts();
+        notify.success(`${bill.type} paga. A despesa de ${formatCurrency(amount)} entrou em Lançamentos.`);
     } catch (error) {
         console.error('Erro ao marcar conta como paga:', error);
+        notify.error('Não foi possível registrar o pagamento. Tente de novo.');
+    }
+}
+
+// Desfaz o pagamento do mês e remove a despesa que ele gerou.
+async function undoBillPayment(billId, month, year) {
+    const bill = DB.monthlyBills.find(b => b.id === billId);
+    if (!bill) return;
+    const payment = (bill.payments || []).find(p => p.month === month && p.year === year);
+    if (!payment) return;
+    if (!confirm(`Desfazer o pagamento de ${bill.type} deste mês? A despesa registrada também será excluída.`)) return;
+
+    try {
+        const userRef = window.db.collection('users').doc(window.auth.currentUser.uid);
+        const payments = bill.payments.filter(p => p !== payment);
+        await userRef.collection('monthlyBills').doc(billId).update({ payments });
+        bill.payments = payments;
+
+        if (payment.transactionId) {
+            await userRef.collection('transactions').doc(payment.transactionId).delete();
+            DB.transactions = DB.transactions.filter(t => t.id !== payment.transactionId);
+        }
+
+        updateBillsList();
+        checkBillsAlerts();
+        notify.success(`Pagamento de ${bill.type} desfeito.`);
+    } catch (error) {
+        console.error('Erro ao desfazer pagamento:', error);
+        notify.error('Não foi possível desfazer o pagamento. Tente de novo.');
     }
 }
 
@@ -1432,7 +1516,7 @@ function updateBillsList() {
                     </div>
                     <div class="transaction-details">
                         <h4>${escapeHTML(bill.type)}</h4>
-                        <p>${escapeHTML(bill.notes || 'Sem observações')}</p>
+                        ${bill.notes ? `<p>${escapeHTML(bill.notes)}</p>` : ''}
                         <small>Vencimento: dia ${bill.dueDay}</small>
                     </div>
                 </div>
@@ -1448,7 +1532,9 @@ function updateBillsList() {
                         <button class="btn-mark-paid" onclick="markBillAsPaid('${escapeHTML(bill.id)}', ${currentMonth}, ${currentYear})">
                             <i class="fas fa-check"></i> Marcar como pago
                         </button>
-                    ` : ''}
+                    ` : `
+                        <button type="button" class="link-btn" onclick="undoBillPayment('${escapeHTML(bill.id)}', ${currentMonth}, ${currentYear})">Desfazer pagamento</button>
+                    `}
                     ${itemActions('monthlyBills', bill.id)}
                 </div>
             </div>
@@ -1749,6 +1835,89 @@ async function handleClearData() {
     }
 }
 
+// ========== LIVRO-CAIXA: lançamentos + parcelas do cartão ==========
+const round2 = (value) => Math.round(value * 100) / 100;
+
+function daysInMonth(year, month) {
+    return new Date(year, month + 1, 0).getDate();
+}
+
+function toISODate(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+// Parcelas de uma compra no cartão: a 1ª cai no mês da compra, as demais
+// nos meses seguintes, no mesmo dia (ou no último dia, em meses mais curtos).
+function getInstallments(card) {
+    const total = Number(card.totalAmount) || 0;
+    const count = Math.max(1, parseInt(card.installments, 10) || 1);
+    const base = round2(total / count);
+    const start = parseLocalDate(card.date);
+    if (isNaN(start)) return [];
+
+    return Array.from({ length: count }, (_, i) => {
+        const year = start.getFullYear();
+        const month = start.getMonth() + i;
+        const day = Math.min(start.getDate(), daysInMonth(year, month));
+        return {
+            number: i + 1,
+            count,
+            date: toISODate(new Date(year, month, day)),
+            amount: i === count - 1 ? round2(total - base * (count - 1)) : base
+        };
+    });
+}
+
+// Lançamentos reais + parcelas do cartão que já venceram até o fim do mês atual.
+// As parcelas são somente leitura: são editadas pela compra, em Cartões.
+function getLedger() {
+    const now = new Date();
+    const limit = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const installments = [];
+    DB.creditCards.forEach(card => {
+        getInstallments(card).forEach(inst => {
+            if (parseLocalDate(inst.date) > limit) return;
+            installments.push({
+                id: `card:${card.id}:${inst.number}`,
+                virtual: 'card',
+                cardId: card.id,
+                type: 'expense',
+                amount: inst.amount,
+                category: card.category || 'Compras',
+                date: inst.date,
+                description: `${card.description} (${inst.number}/${inst.count})`,
+                cardName: card.cardName
+            });
+        });
+    });
+    return DB.transactions.concat(installments);
+}
+
+// Quanto foi gasto numa categoria no mês da data informada (padrão: mês atual).
+function getMonthSpending(category, reference = new Date()) {
+    const y = reference.getFullYear();
+    const m = reference.getMonth();
+    return round2(getLedger()
+        .filter(t => t.type === 'expense' && t.category === category)
+        .filter(t => {
+            const d = parseLocalDate(t.date);
+            return d.getFullYear() === y && d.getMonth() === m;
+        })
+        .reduce((sum, t) => sum + t.amount, 0));
+}
+
+function currentMonthName() {
+    return new Date().toLocaleDateString('pt-BR', { month: 'long' });
+}
+
+// Datas dos formulários começam preenchidas com hoje.
+function fillDefaultDates() {
+    ['transaction-date', 'card-date', 'investment-date'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.value) el.value = todayISO();
+    });
+}
+
 // ========== EDIÇÃO E EXCLUSÃO ==========
 // Cada coleção editável: formulário, campos (propriedade -> id do input),
 // rótulo para mensagens e função que re-renderiza as telas afetadas.
@@ -1850,6 +2019,7 @@ async function saveRecord(collection, data, defaultsOnCreate = {}) {
     });
     list.push({ id: docRef.id, userId, ...record });
     document.getElementById(EDITABLE[collection].form)?.reset();
+    fillDefaultDates();
     return { id: docRef.id, created: true };
 }
 
@@ -1916,6 +2086,7 @@ function cancelEdit(collection) {
         if (title?.dataset.original) title.innerHTML = title.dataset.original;
         if (submit?.dataset.original) submit.innerHTML = submit.dataset.original;
         form.querySelector('.btn-cancel-edit')?.remove();
+        fillDefaultDates();
         card?.classList.remove('is-editing');
     }
     if (editing.collection === collection) {
@@ -1936,6 +2107,17 @@ async function deleteRecord(collection, id) {
         await window.db.collection('users').doc(userId).collection(collection).doc(id).delete();
         DB[collection] = DB[collection].filter(x => x.id !== id);
         if (editing.collection === collection && editing.id === id) cancelEdit(collection);
+
+        // Despesa gerada pelo pagamento de uma conta: a conta volta a ficar pendente.
+        if (collection === 'transactions' && item.billId) {
+            const bill = DB.monthlyBills.find(b => b.id === item.billId);
+            if (bill?.payments?.some(p => p.transactionId === id)) {
+                bill.payments = bill.payments.filter(p => p.transactionId !== id);
+                await window.db.collection('users').doc(userId).collection('monthlyBills').doc(bill.id).update({ payments: bill.payments });
+                updateBillsList();
+                checkBillsAlerts();
+            }
+        }
         config.refresh();
         notify.success(`${config.label} excluído(a).`);
     } catch (error) {
