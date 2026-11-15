@@ -435,7 +435,7 @@ function getLast6MonthsData() {
         
         // Filtrar transações do mês
         const monthTransactions = DB.transactions.filter(t => {
-            const tDate = new Date(t.date);
+            const tDate = parseLocalDate(t.date);
             return tDate.getMonth() === date.getMonth() && 
                    tDate.getFullYear() === date.getFullYear();
         });

@@ -107,7 +107,7 @@ async function exportToPDF() {
                     yPos = 20;
                 }
                 
-                const date = new Date(t.date).toLocaleDateString('pt-BR');
+                const date = parseLocalDate(t.date).toLocaleDateString('pt-BR');
                 const typeIcon = t.type === 'income' ? '↑' : '↓';
                 const amountColor = t.type === 'income' ? [22, 163, 74] : [220, 38, 38];
                 
@@ -159,7 +159,7 @@ async function exportToPDF() {
         doc.text(`Página 1 de ${doc.internal.pages.length - 1}`, pageWidth - 20, footerY, { align: 'right' });
         
         // Salvar
-        const filename = `fincontrol-relatorio-${now.toISOString().split('T')[0]}.pdf`;
+        const filename = `fincontrol-relatorio-${todayISO()}.pdf`;
         doc.save(filename);
         
         notify.success('Relatório PDF gerado com sucesso!');
@@ -200,7 +200,7 @@ function exportToExcel() {
         
         DB.transactions.forEach(t => {
             transactionsData.push([
-                new Date(t.date).toLocaleDateString('pt-BR'),
+                parseLocalDate(t.date).toLocaleDateString('pt-BR'),
                 t.type === 'income' ? 'Receita' : 'Despesa',
                 t.category,
                 t.amount.toFixed(2),
@@ -247,7 +247,7 @@ function exportToExcel() {
                 g.currentAmount.toFixed(2),
                 remaining.toFixed(2),
                 `${percentage}%`,
-                new Date(g.deadline).toLocaleDateString('pt-BR')
+                parseLocalDate(g.deadline).toLocaleDateString('pt-BR')
             ]);
         });
         
@@ -268,7 +268,7 @@ function exportToExcel() {
                 inv.currentValue.toFixed(2),
                 profit.toFixed(2),
                 `${returnRate}%`,
-                new Date(inv.date).toLocaleDateString('pt-BR')
+                parseLocalDate(inv.date).toLocaleDateString('pt-BR')
             ]);
         });
         
@@ -294,7 +294,7 @@ function exportToExcel() {
         XLSX.utils.book_append_sheet(wb, ws_bills, 'Contas Mensais');
         
         // Salvar arquivo
-        const filename = `fincontrol-dados-${new Date().toISOString().split('T')[0]}.xlsx`;
+        const filename = `fincontrol-dados-${todayISO()}.xlsx`;
         XLSX.writeFile(wb, filename);
         
         notify.success('Planilha Excel gerada com sucesso!');
