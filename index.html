@@ -375,6 +375,32 @@
 
       <div class="card">
         <h3 class="card-title"><i class="fas fa-history"></i> Histórico</h3>
+        <div class="list-filters" id="transaction-filters">
+          <div class="form-group filter-search">
+            <label for="filter-search">Buscar</label>
+            <input type="search" id="filter-search" placeholder="Descrição ou categoria…" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label for="filter-type">Tipo</label>
+            <select id="filter-type">
+              <option value="">Todos</option>
+              <option value="income">Receitas</option>
+              <option value="expense">Despesas</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="filter-category">Categoria</label>
+            <select id="filter-category">
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="filter-month">Mês</label>
+            <input type="month" id="filter-month">
+          </div>
+          <button type="button" class="btn btn-ghost" id="filter-clear"><i class="fas fa-eraser"></i> Limpar</button>
+        </div>
+        <div class="list-summary" id="transactions-summary"></div>
         <div id="transactions-list"></div>
       </div>
     </div>
@@ -483,6 +509,10 @@
           <div class="form-group">
             <label>Valor Alvo *</label>
             <input type="number" id="goal-amount" step="0.01" min="0" placeholder="0,00" required>
+          </div>
+          <div class="form-group">
+            <label>Valor já guardado</label>
+            <input type="number" id="goal-current" step="0.01" min="0" placeholder="0,00">
           </div>
           <div class="form-group">
             <label>Data Limite *</label>

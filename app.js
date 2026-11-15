@@ -32,6 +32,11 @@ const DEFAULT_CATEGORIES = [
 
 let currentFilter = 'month';
 
+const INVESTMENT_TYPES = {
+    'acoes': 'Ações', 'fundos': 'Fundos', 'renda-fixa': 'Renda Fixa', 'tesouro': 'Tesouro Direto',
+    'cripto': 'Criptomoedas', 'imoveis': 'Imóveis', 'outros': 'Outros'
+};
+
 // ========== UTILITÁRIOS ==========
 // Escapa texto digitado pelo usuário antes de inseri-lo via innerHTML.
 function escapeHTML(value) {
@@ -168,6 +173,7 @@ function setupEventListeners() {
     // Backup buttons
     document.getElementById('backup-btn')?.addEventListener('click', handleBackup);
     document.getElementById('restore-btn')?.addEventListener('change', handleRestore);
+    setupTransactionFilters();
     document.getElementById('clear-data-btn')?.addEventListener('click', handleClearData);
 
     // Theme toggle
@@ -318,6 +324,7 @@ async function handleLogout() {
     if (confirm('Deseja realmente sair?')) {
         try {
             await window.auth.signOut();
+            Object.keys(EDITABLE).forEach(cancelEdit);
             DB.currentUser = null;
             DB.transactions = [];
             DB.budgets = [];
@@ -502,48 +509,24 @@ function navigateTo(page) {
 // ========== TRANSAÇÕES ==========
 async function handleAddTransaction(e) {
     e.preventDefault();
-    
+
     const type = document.getElementById('transaction-type').value;
-    const amount = parseFloat(document.getElementById('transaction-amount').value);
+    const amount = parseAmount(document.getElementById('transaction-amount').value);
     const category = document.getElementById('transaction-category').value;
     const date = document.getElementById('transaction-date').value;
-    const description = document.getElementById('transaction-description').value;
+    const description = document.getElementById('transaction-description').value.trim();
 
-    if (!type || !amount || !category || !date) {
+    if (!type || !(amount > 0) || !category || !date) {
         notify.error('Preencha todos os campos obrigatórios');
         return;
     }
 
     try {
-        const userId = window.auth.currentUser.uid;
-        
-        const docRef = await window.db.collection('users').doc(userId)
-            .collection('transactions').add({
-                type,
-                amount,
-                category,
-                date,
-                description,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        
-        DB.transactions.push({
-            id: docRef.id,
-            userId,
-            type,
-            amount,
-            category,
-            date,
-            description
-        });
-        
-        notify.success('Transação adicionada com sucesso!');
-        document.getElementById('transaction-form').reset();
-        updateTransactionsList();
-        updateDashboard();
-        
+        const { created } = await saveRecord('transactions', { type, amount, category, date, description });
+        notify.success(created ? 'Transação adicionada com sucesso!' : 'Transação atualizada!');
+        EDITABLE.transactions.refresh();
     } catch (error) {
-        console.error('Erro ao adicionar transação:', error);
+        console.error('Erro ao salvar transação:', error);
         notify.error('Erro ao salvar transação');
     }
 }
@@ -552,13 +535,36 @@ function updateTransactionsList() {
     const container = document.getElementById('transactions-list');
     if (!container) return;
     
-    const transactions = DB.transactions;
+    updateFilterCategoryOptions();
+    const transactions = applyTransactionFilters(DB.transactions);
+    const summary = document.getElementById('transactions-summary');
 
-    if (transactions.length === 0) {
+    if (DB.transactions.length === 0) {
+        if (summary) summary.textContent = '';
         container.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-file-invoice"></i>
                 <p>Nenhuma transação registrada</p>
+            </div>
+        `;
+        return;
+    }
+
+    if (summary) {
+        const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+        const expense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+        summary.innerHTML = `
+            <span>${transactions.length} lançamento(s)</span>
+            <span class="income">Receitas: ${formatCurrency(income)}</span>
+            <span class="expense">Despesas: ${formatCurrency(expense)}</span>
+            <span>Saldo: ${formatCurrency(income - expense)}</span>`;
+    }
+
+    if (transactions.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-filter"></i>
+                <p>Nenhum lançamento encontrado com esses filtros</p>
             </div>
         `;
         return;
@@ -578,20 +584,72 @@ function updateTransactionsList() {
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
                 <div class="transaction-amount ${t.type}">
-                    ${t.type === 'income' ? '+' : '-'} R$ ${t.amount.toFixed(2)}
+                    ${t.type === 'income' ? '+' : '-'} ${formatCurrency(t.amount)}
                 </div>
+                ${itemActions('transactions', t.id)}
             </div>
         </div>
     `).join('');
+}
+
+// ---------- Filtros do histórico ----------
+// Remove acentos e caixa para a busca ("alimentacao" encontra "Alimentação").
+function normalizeText(value) {
+    return String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function applyTransactionFilters(list) {
+    const search = normalizeText(document.getElementById('filter-search')?.value.trim());
+    const type = document.getElementById('filter-type')?.value || '';
+    const category = document.getElementById('filter-category')?.value || '';
+    const month = document.getElementById('filter-month')?.value || ''; // "AAAA-MM"
+
+    return list.filter(t =>
+        (!type || t.type === type) &&
+        (!category || t.category === category) &&
+        (!month || String(t.date).startsWith(month)) &&
+        (!search || normalizeText(`${t.description} ${t.category}`).includes(search))
+    );
+}
+
+function updateFilterCategoryOptions() {
+    const select = document.getElementById('filter-category');
+    if (!select) return;
+    const current = select.value;
+    const names = [...new Set([...DB.categories.map(c => c.name), ...DB.transactions.map(t => t.category)])]
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    select.innerHTML = '<option value="">Todas</option>';
+    names.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        select.appendChild(option);
+    });
+    select.value = names.includes(current) ? current : '';
+}
+
+function setupTransactionFilters() {
+    ['filter-search', 'filter-type', 'filter-category', 'filter-month'].forEach(id => {
+        const el = document.getElementById(id);
+        el?.addEventListener(el.tagName === 'INPUT' && el.type === 'search' ? 'input' : 'change', updateTransactionsList);
+    });
+    document.getElementById('filter-clear')?.addEventListener('click', () => {
+        ['filter-search', 'filter-type', 'filter-category', 'filter-month'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        updateTransactionsList();
+    });
 }
 
 // ========== DASHBOARD ==========
 function updateDashboard() {
     const totals = calculateTotals();
     
-    document.getElementById('total-income').textContent = `R$ ${totals.income.toFixed(2)}`;
-    document.getElementById('total-expense').textContent = `R$ ${totals.expense.toFixed(2)}`;
-    document.getElementById('total-balance').textContent = `R$ ${totals.balance.toFixed(2)}`;
+    document.getElementById('total-income').textContent = `${formatCurrency(totals.income)}`;
+    document.getElementById('total-expense').textContent = `${formatCurrency(totals.expense)}`;
+    document.getElementById('total-balance').textContent = `${formatCurrency(totals.balance)}`;
     
     const total = totals.income + totals.expense;
     document.getElementById('income-percentage').textContent = 
@@ -654,7 +712,7 @@ function updateRecentTransactions() {
                 </div>
             </div>
             <div class="transaction-amount ${t.type}" style="font-size: 16px;">
-                ${t.type === 'income' ? '+' : '-'} R$ ${t.amount.toFixed(2)}
+                ${t.type === 'income' ? '+' : '-'} ${formatCurrency(t.amount)}
             </div>
         </div>
     `).join('');
@@ -692,38 +750,21 @@ function getFilteredTransactions() {
 // ========== ORÇAMENTOS ==========
 async function handleAddBudget(e) {
     e.preventDefault();
-    
-    const category = document.getElementById('budget-category').value;
-    const amount = parseFloat(document.getElementById('budget-amount').value);
 
-    if (!category || !amount) {
+    const category = document.getElementById('budget-category').value.trim();
+    const amount = parseAmount(document.getElementById('budget-amount').value);
+
+    if (!category || !(amount > 0)) {
         notify.error('Preencha todos os campos');
         return;
     }
 
     try {
-        const userId = window.auth.currentUser.uid;
-        
-        const docRef = await window.db.collection('users').doc(userId)
-            .collection('budgets').add({
-                category,
-                amount,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        
-        DB.budgets.push({
-            id: docRef.id,
-            userId,
-            category,
-            amount
-        });
-        
-        notify.success('Orçamento adicionado com sucesso!');
-        document.getElementById('budget-form').reset();
-        updateBudgetsList();
-        
+        const { created } = await saveRecord('budgets', { category, amount });
+        notify.success(created ? 'Orçamento adicionado com sucesso!' : 'Orçamento atualizado!');
+        EDITABLE.budgets.refresh();
     } catch (error) {
-        console.error('Erro ao adicionar orçamento:', error);
+        console.error('Erro ao salvar orçamento:', error);
         notify.error('Erro ao salvar orçamento');
     }
 }
@@ -754,14 +795,17 @@ function updateBudgetsList() {
             <div class="budget-item">
                 <div class="budget-header">
                     <h4 class="budget-name">${escapeHTML(b.category)}</h4>
-                    <span class="budget-percentage ${status}">${percentage.toFixed(0)}%</span>
+                    <div class="item-header-right">
+                        <span class="budget-percentage ${status}">${percentage.toFixed(0)}%</span>
+                        ${itemActions('budgets', b.id)}
+                    </div>
                 </div>
                 <div class="progress-bar">
                     <div class="progress-fill ${status}" style="width: ${Math.min(percentage, 100)}%"></div>
                 </div>
                 <div class="budget-info">
-                    <span>Gasto: R$ ${spent.toFixed(2)}</span>
-                    <span>Limite: R$ ${b.amount.toFixed(2)}</span>
+                    <span>Gasto: ${formatCurrency(spent)}</span>
+                    <span>Limite: ${formatCurrency(b.amount)}</span>
                 </div>
             </div>
         `;
@@ -773,43 +817,24 @@ function updateBudgetsList() {
 // ========== METAS ==========
 async function handleAddGoal(e) {
     e.preventDefault();
-    
-    const name = document.getElementById('goal-name').value;
-    const amount = parseFloat(document.getElementById('goal-amount').value);
+
+    const name = document.getElementById('goal-name').value.trim();
+    const targetAmount = parseAmount(document.getElementById('goal-amount').value);
+    const currentRaw = document.getElementById('goal-current')?.value ?? '';
+    const currentAmount = currentRaw === '' ? 0 : parseAmount(currentRaw);
     const deadline = document.getElementById('goal-deadline').value;
 
-    if (!name || !amount || !deadline) {
+    if (!name || !(targetAmount > 0) || !deadline || !(currentAmount >= 0)) {
         notify.error('Preencha todos os campos');
         return;
     }
 
     try {
-        const userId = window.auth.currentUser.uid;
-        
-        const docRef = await window.db.collection('users').doc(userId)
-            .collection('goals').add({
-                name,
-                targetAmount: amount,
-                currentAmount: 0,
-                deadline,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        
-        DB.goals.push({
-            id: docRef.id,
-            userId,
-            name,
-            targetAmount: amount,
-            currentAmount: 0,
-            deadline
-        });
-        
-        notify.success('Meta criada com sucesso!');
-        document.getElementById('goal-form').reset();
-        updateGoalsList();
-        
+        const { created } = await saveRecord('goals', { name, targetAmount, currentAmount, deadline });
+        notify.success(created ? 'Meta criada com sucesso!' : 'Meta atualizada!');
+        EDITABLE.goals.refresh();
     } catch (error) {
-        console.error('Erro ao adicionar meta:', error);
+        console.error('Erro ao salvar meta:', error);
         notify.error('Erro ao salvar meta');
     }
 }
@@ -836,12 +861,13 @@ function updateGoalsList() {
             <div class="goal-item">
                 <div class="goal-header">
                     <h4 class="goal-name">${escapeHTML(g.name)}</h4>
-                    <div class="goal-icon">
-                        <i class="fas fa-bullseye"></i>
-                    </div>
+                    ${itemActions('goals', g.id, `
+                        <button type="button" class="icon-btn success" data-action="goal-add" data-id="${escapeHTML(g.id)}" title="Adicionar valor guardado" aria-label="Adicionar valor guardado">
+                            <i class="fas fa-plus"></i>
+                        </button>`)}
                 </div>
                 <div class="goal-progress">
-                    <span>R$ ${g.currentAmount.toFixed(2)} de R$ ${g.targetAmount.toFixed(2)}</span>
+                    <span>${formatCurrency(g.currentAmount)} de ${formatCurrency(g.targetAmount)}</span>
                     <span class="goal-percentage">${percentage.toFixed(0)}%</span>
                 </div>
                 <div class="progress-bar">
@@ -850,7 +876,7 @@ function updateGoalsList() {
                 <div class="goal-stats">
                     <div class="goal-stat">
                         <span>Falta</span>
-                        <span>R$ ${remaining.toFixed(2)}</span>
+                        <span>${formatCurrency(remaining)}</span>
                     </div>
                     <div class="goal-stat deadline">
                         <span>Prazo</span>
@@ -890,7 +916,7 @@ function updateGoalsPreview() {
                     <div class="progress-fill success" style="width: ${Math.min(percentage, 100)}%"></div>
                 </div>
                 <div class="goal-progress" style="margin-top: 8px;">
-                    <span style="font-size: 12px;">R$ ${g.currentAmount.toFixed(2)} / R$ ${g.targetAmount.toFixed(2)}</span>
+                    <span style="font-size: 12px;">${formatCurrency(g.currentAmount)} / ${formatCurrency(g.targetAmount)}</span>
                     <span class="goal-percentage" style="font-size: 14px;">${percentage.toFixed(0)}%</span>
                 </div>
             </div>
@@ -901,50 +927,26 @@ function updateGoalsPreview() {
 // ========== INVESTIMENTOS ==========
 async function handleAddInvestment(e) {
     e.preventDefault();
-    
-    const name = document.getElementById('investment-name').value;
-    const type = document.getElementById('investment-type').value;
-    const amount = parseFloat(document.getElementById('investment-amount').value);
-    const current = parseFloat(document.getElementById('investment-current').value) || amount;
-    const date = document.getElementById('investment-date').value;
-    const yieldRate = parseFloat(document.getElementById('investment-yield').value) || 0;
 
-    if (!name || !type || !amount || !date) {
+    const name = document.getElementById('investment-name').value.trim();
+    const type = document.getElementById('investment-type').value;
+    const amount = parseAmount(document.getElementById('investment-amount').value);
+    const currentRaw = document.getElementById('investment-current').value;
+    const currentValue = currentRaw === '' ? amount : parseAmount(currentRaw);
+    const date = document.getElementById('investment-date').value;
+    const yieldRate = parseAmount(document.getElementById('investment-yield').value) || 0;
+
+    if (!name || !type || !(amount > 0) || !date || !(currentValue >= 0)) {
         notify.error('Preencha todos os campos obrigatórios');
         return;
     }
 
     try {
-        const userId = window.auth.currentUser.uid;
-        
-        const docRef = await window.db.collection('users').doc(userId)
-            .collection('investments').add({
-                name,
-                type,
-                amount,
-                currentValue: current,
-                date,
-                yieldRate,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        
-        DB.investments.push({
-            id: docRef.id,
-            userId,
-            name,
-            type,
-            amount,
-            currentValue: current,
-            date,
-            yieldRate
-        });
-        
-        notify.success('Investimento adicionado com sucesso!');
-        document.getElementById('investment-form').reset();
-        updateInvestmentsList();
-        
+        const { created } = await saveRecord('investments', { name, type, amount, currentValue, date, yieldRate });
+        notify.success(created ? 'Investimento adicionado com sucesso!' : 'Investimento atualizado!');
+        EDITABLE.investments.refresh();
     } catch (error) {
-        console.error('Erro ao adicionar investimento:', error);
+        console.error('Erro ao salvar investimento:', error);
         notify.error('Erro ao salvar investimento');
     }
 }
@@ -968,10 +970,10 @@ function updateInvestmentsList() {
     const totalProfit = totalCurrent - totalInvested;
     const totalReturn = ((totalProfit / totalInvested) * 100) || 0;
 
-    document.getElementById('total-invested').textContent = `R$ ${totalInvested.toFixed(2)}`;
-    document.getElementById('total-current').textContent = `R$ ${totalCurrent.toFixed(2)}`;
-    document.getElementById('total-profit').textContent = `R$ ${totalProfit.toFixed(2)}`;
-    document.getElementById('total-return').textContent = `${totalReturn.toFixed(2)}%`;
+    document.getElementById('total-invested').textContent = `${formatCurrency(totalInvested)}`;
+    document.getElementById('total-current').textContent = `${formatCurrency(totalCurrent)}`;
+    document.getElementById('total-profit').textContent = `${formatCurrency(totalProfit)}`;
+    document.getElementById('total-return').textContent = formatPercent(totalReturn);
 
     container.innerHTML = DB.investments.map(inv => {
         const profit = inv.currentValue - inv.amount;
@@ -981,21 +983,24 @@ function updateInvestmentsList() {
             <div class="investment-item">
                 <div class="investment-header">
                     <h4 class="investment-name">${escapeHTML(inv.name)}</h4>
-                    <span class="investment-type">${escapeHTML(inv.type)}</span>
+                    <div class="item-header-right">
+                        <span class="investment-type">${escapeHTML(INVESTMENT_TYPES[inv.type] || inv.type)}</span>
+                        ${itemActions('investments', inv.id)}
+                    </div>
                 </div>
                 <div class="investment-details">
                     <div class="investment-detail">
                         <span class="investment-detail-label">Investido</span>
-                        <span class="investment-detail-value">R$ ${inv.amount.toFixed(2)}</span>
+                        <span class="investment-detail-value">${formatCurrency(inv.amount)}</span>
                     </div>
                     <div class="investment-detail">
                         <span class="investment-detail-label">Valor Atual</span>
-                        <span class="investment-detail-value">R$ ${inv.currentValue.toFixed(2)}</span>
+                        <span class="investment-detail-value">${formatCurrency(inv.currentValue)}</span>
                     </div>
                     <div class="investment-detail">
                         <span class="investment-detail-label">Rendimento</span>
                         <span class="investment-detail-value" style="color: ${profit >= 0 ? 'var(--success)' : 'var(--danger)'}">
-                            R$ ${profit.toFixed(2)} (${returnRate.toFixed(2)}%)
+                            ${formatCurrency(profit)} (${formatPercent(returnRate)})
                         </span>
                     </div>
                     <div class="investment-detail">
@@ -1011,52 +1016,29 @@ function updateInvestmentsList() {
 // ========== CARTÕES DE CRÉDITO ==========
 async function handleAddCreditCard(e) {
     e.preventDefault();
-    
-    const cardName = document.getElementById('card-name').value;
-    const description = document.getElementById('card-description').value;
-    const amount = parseFloat(document.getElementById('card-amount').value);
+
+    const cardName = document.getElementById('card-name').value.trim();
+    const description = document.getElementById('card-description').value.trim();
+    const totalAmount = parseAmount(document.getElementById('card-amount').value);
     const date = document.getElementById('card-date').value;
-    const installments = parseInt(document.getElementById('card-installments').value);
+    const installments = parseInt(document.getElementById('card-installments').value, 10);
     const category = document.getElementById('card-category').value;
 
-    if (!cardName || !description || !amount || !date || !installments) {
+    if (!cardName || !description || !(totalAmount > 0) || !date || !(installments >= 1)) {
         notify.error('Preencha todos os campos obrigatórios');
         return;
     }
 
     try {
-        const userId = window.auth.currentUser.uid;
-        
-        const docRef = await window.db.collection('users').doc(userId)
-            .collection('creditCards').add({
-                cardName,
-                description,
-                totalAmount: amount,
-                installmentAmount: amount / installments,
-                date,
-                installments,
-                category,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        
-        DB.creditCards.push({
-            id: docRef.id,
-            userId,
-            cardName,
-            description,
-            totalAmount: amount,
-            installmentAmount: amount / installments,
-            date,
-            installments,
-            category
+        const { created } = await saveRecord('creditCards', {
+            cardName, description, totalAmount,
+            installmentAmount: totalAmount / installments,
+            date, installments, category
         });
-        
-        notify.success('Compra adicionada com sucesso!');
-        document.getElementById('credit-card-form').reset();
-        updateCreditCardsList();
-        
+        notify.success(created ? 'Compra adicionada com sucesso!' : 'Compra atualizada!');
+        EDITABLE.creditCards.refresh();
     } catch (error) {
-        console.error('Erro ao adicionar compra:', error);
+        console.error('Erro ao salvar compra:', error);
         notify.error('Erro ao salvar compra');
     }
 }
@@ -1084,11 +1066,14 @@ function updateCreditCardsList() {
                 <div class="transaction-details">
                     <h4>${escapeHTML(card.cardName)} - ${escapeHTML(card.description)}</h4>
                     <p>${escapeHTML(card.category)}</p>
-                    <small>${formatDate(card.date)} - ${card.installments}x de R$ ${card.installmentAmount.toFixed(2)}</small>
+                    <small>${formatDate(card.date)} - ${card.installments}x de ${formatCurrency(card.installmentAmount)}</small>
                 </div>
             </div>
-            <div class="transaction-amount expense">
-                R$ ${card.totalAmount.toFixed(2)}
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                <div class="transaction-amount expense">
+                    ${formatCurrency(card.totalAmount)}
+                </div>
+                ${itemActions('creditCards', card.id)}
             </div>
         </div>
     `).join('');
@@ -1097,49 +1082,25 @@ function updateCreditCardsList() {
 // ========== CONTAS MENSAIS ==========
 async function handleAddBill(e) {
     e.preventDefault();
-    
-    const type = document.getElementById('bill-type').value;
-    const amount = parseFloat(document.getElementById('bill-amount').value);
-    const dueDay = parseInt(document.getElementById('bill-due-day').value);
-    const notes = document.getElementById('bill-notes').value;
 
-    if (!type || !amount || !dueDay) {
+    const type = document.getElementById('bill-type').value;
+    const amount = parseAmount(document.getElementById('bill-amount').value);
+    const dueDay = parseInt(document.getElementById('bill-due-day').value, 10);
+    const notes = document.getElementById('bill-notes').value.trim();
+
+    if (!type || !(amount > 0) || !(dueDay >= 1 && dueDay <= 31)) {
         notify.error('Preencha todos os campos obrigatórios');
         return;
     }
 
     try {
-        const userId = window.auth.currentUser.uid;
-        
-        const docRef = await window.db.collection('users').doc(userId)
-            .collection('monthlyBills').add({
-                type,
-                amount,
-                dueDay,
-                notes,
-                status: 'pending',
-                payments: [],
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        
-        DB.monthlyBills.push({
-            id: docRef.id,
-            userId,
-            type,
-            amount,
-            dueDay,
-            notes,
-            status: 'pending',
-            payments: []
-        });
-        
-        notify.success('Conta adicionada com sucesso!');
-        document.getElementById('bill-form').reset();
-        updateBillsList();
-        checkBillsAlerts();
-        
+        // Ao editar, status e histórico de pagamentos são preservados.
+        const { created } = await saveRecord('monthlyBills', { type, amount, dueDay, notes },
+            { status: 'pending', payments: [] });
+        notify.success(created ? 'Conta adicionada com sucesso!' : 'Conta atualizada!');
+        EDITABLE.monthlyBills.refresh();
     } catch (error) {
-        console.error('Erro ao adicionar conta:', error);
+        console.error('Erro ao salvar conta:', error);
         notify.error('Erro ao salvar conta');
     }
 }
@@ -1274,7 +1235,7 @@ function updateBillsList() {
     }
 
     const totalBills = DB.monthlyBills.reduce((sum, b) => sum + b.amount, 0);
-    document.getElementById('total-bills').textContent = `R$ ${totalBills.toFixed(2)}`;
+    document.getElementById('total-bills').textContent = `${formatCurrency(totalBills)}`;
     document.getElementById('bills-count').textContent = DB.monthlyBills.length;
 
     const now = new Date();
@@ -1299,7 +1260,7 @@ function updateBillsList() {
                 </div>
                 <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
                     <div class="transaction-amount expense">
-                        R$ ${bill.amount.toFixed(2)}
+                        ${formatCurrency(bill.amount)}
                     </div>
                     <span class="bill-status ${status.class}">
                         <i class="fas fa-${status.status === 'paid' ? 'check-circle' : status.status === 'overdue' ? 'exclamation-circle' : 'clock'}"></i>
@@ -1310,6 +1271,7 @@ function updateBillsList() {
                             <i class="fas fa-check"></i> Marcar como Pago
                         </button>
                     ` : ''}
+                    ${itemActions('monthlyBills', bill.id)}
                 </div>
             </div>
         `;
@@ -1353,7 +1315,7 @@ function updateBillsCalendar() {
                 <div class="calendar-day-item">
                     <div class="calendar-day-header">
                         <span class="calendar-day-number">Dia ${day}</span>
-                        <span class="calendar-day-total">R$ ${total.toFixed(2)}</span>
+                        <span class="calendar-day-total">${formatCurrency(total)}</span>
                     </div>
                     <div class="calendar-day-bills">
                         ${bills.map(bill => {
@@ -1418,6 +1380,7 @@ function updateCategoriesList() {
                 <span>${escapeHTML(cat.name)}</span>
                 <span class="category-badge ${cat.type}">${cat.type === 'income' ? 'Receita' : 'Despesa'}</span>
             </div>
+            ${cat.id ? `<button type="button" class="icon-btn danger" data-action="delete-category" data-id="${escapeHTML(cat.id)}" title="Excluir categoria" aria-label="Excluir categoria"><i class="fas fa-trash"></i></button>` : ''}
         </div>
     `).join('');
 }
@@ -1440,9 +1403,9 @@ function loadCategories() {
 function updateReports() {
     const totals = calculateTotals();
     
-    document.getElementById('report-income').textContent = `R$ ${totals.income.toFixed(2)}`;
-    document.getElementById('report-expense').textContent = `R$ ${totals.expense.toFixed(2)}`;
-    document.getElementById('report-balance').textContent = `R$ ${totals.balance.toFixed(2)}`;
+    document.getElementById('report-income').textContent = `${formatCurrency(totals.income)}`;
+    document.getElementById('report-expense').textContent = `${formatCurrency(totals.expense)}`;
+    document.getElementById('report-balance').textContent = `${formatCurrency(totals.balance)}`;
     
     // Atualizar gráficos da página de relatórios
     if (typeof updateAllCharts === 'function') {
@@ -1607,6 +1570,258 @@ async function handleClearData() {
         notify.error('Erro ao limpar dados');
     }
 }
+
+// ========== EDIÇÃO E EXCLUSÃO ==========
+// Cada coleção editável: formulário, campos (propriedade -> id do input),
+// rótulo para mensagens e função que re-renderiza as telas afetadas.
+const EDITABLE = {
+    transactions: {
+        form: 'transaction-form', label: 'Lançamento',
+        fields: { type: 'transaction-type', amount: 'transaction-amount', category: 'transaction-category', date: 'transaction-date', description: 'transaction-description' },
+        name: t => `${t.category} — ${formatCurrency(t.amount)}`,
+        refresh: () => { updateTransactionsList(); updateDashboard(); }
+    },
+    budgets: {
+        form: 'budget-form', label: 'Orçamento',
+        fields: { category: 'budget-category', amount: 'budget-amount' },
+        name: b => b.category,
+        refresh: () => updateBudgetsList()
+    },
+    goals: {
+        form: 'goal-form', label: 'Meta',
+        fields: { name: 'goal-name', targetAmount: 'goal-amount', currentAmount: 'goal-current', deadline: 'goal-deadline' },
+        name: g => g.name,
+        refresh: () => { updateGoalsList(); updateGoalsPreview(); }
+    },
+    investments: {
+        form: 'investment-form', label: 'Investimento',
+        fields: { name: 'investment-name', type: 'investment-type', amount: 'investment-amount', currentValue: 'investment-current', date: 'investment-date', yieldRate: 'investment-yield' },
+        name: i => i.name,
+        refresh: () => updateInvestmentsList()
+    },
+    creditCards: {
+        form: 'credit-card-form', label: 'Compra',
+        fields: { cardName: 'card-name', description: 'card-description', totalAmount: 'card-amount', date: 'card-date', installments: 'card-installments', category: 'card-category' },
+        name: c => `${c.cardName} — ${c.description}`,
+        refresh: () => updateCreditCardsList()
+    },
+    monthlyBills: {
+        form: 'bill-form', label: 'Conta',
+        fields: { type: 'bill-type', amount: 'bill-amount', dueDay: 'bill-due-day', notes: 'bill-notes' },
+        name: b => b.type,
+        refresh: () => { updateBillsList(); checkBillsAlerts(); }
+    }
+};
+
+// Coleção/id em edição (null quando o formulário está em modo "adicionar").
+const editing = { collection: null, id: null };
+
+function formatCurrency(value) {
+    return (Number(value) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function formatPercent(value) {
+    return `${(Number(value) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+}
+
+// Lê valores digitados aceitando vírgula como separador decimal ("12,50").
+function parseAmount(value) {
+    if (typeof value === 'number') return value;
+    const s = String(value ?? '').trim().replace(/\s|R\$/g, '');
+    const normalized = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s;
+    return parseFloat(normalized);
+}
+
+// Botões de editar/excluir exibidos em cada item das listas.
+function itemActions(collection, id, extra = '') {
+    const safeId = escapeHTML(id);
+    return `
+        <div class="item-actions">
+            ${extra}
+            <button type="button" class="icon-btn" data-action="edit" data-collection="${collection}" data-id="${safeId}" title="Editar" aria-label="Editar">
+                <i class="fas fa-pen"></i>
+            </button>
+            <button type="button" class="icon-btn danger" data-action="delete" data-collection="${collection}" data-id="${safeId}" title="Excluir" aria-label="Excluir">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>`;
+}
+
+// Grava um registro: atualiza se o formulário estiver em edição, senão cria.
+async function saveRecord(collection, data, defaultsOnCreate = {}) {
+    const userId = window.auth.currentUser.uid;
+    const colRef = window.db.collection('users').doc(userId).collection(collection);
+    const list = DB[collection];
+
+    if (editing.collection === collection && editing.id) {
+        const id = editing.id;
+        await colRef.doc(id).update({
+            ...data,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        const index = list.findIndex(item => item.id === id);
+        if (index >= 0) list[index] = { ...list[index], ...data };
+        cancelEdit(collection);
+        return { id, created: false };
+    }
+
+    const record = { ...defaultsOnCreate, ...data };
+    const docRef = await colRef.add({
+        ...record,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    list.push({ id: docRef.id, userId, ...record });
+    document.getElementById(EDITABLE[collection].form)?.reset();
+    return { id: docRef.id, created: true };
+}
+
+function setFieldValue(inputId, value) {
+    const el = document.getElementById(inputId);
+    if (!el) return;
+    const v = value ?? '';
+    // Garante que o valor salvo exista no <select> (ex.: categoria removida).
+    if (el.tagName === 'SELECT' && v !== '' && ![...el.options].some(o => o.value === String(v))) {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        el.appendChild(opt);
+    }
+    el.value = v;
+}
+
+function startEdit(collection, id) {
+    const config = EDITABLE[collection];
+    const item = DB[collection].find(x => x.id === id);
+    if (!config || !item) return;
+
+    if (editing.collection && editing.collection !== collection) cancelEdit(editing.collection);
+    if (collection === 'transactions') loadCategories();
+
+    Object.entries(config.fields).forEach(([prop, inputId]) => setFieldValue(inputId, item[prop]));
+
+    editing.collection = collection;
+    editing.id = id;
+
+    const form = document.getElementById(config.form);
+    const card = form.closest('.card');
+    const title = card?.querySelector('.card-title');
+    const submit = form.querySelector('button[type="submit"]');
+
+    if (title && !title.dataset.original) title.dataset.original = title.innerHTML;
+    if (title) title.innerHTML = `<i class="fas fa-pen"></i> Editar ${config.label.toLowerCase()}`;
+    if (submit && !submit.dataset.original) submit.dataset.original = submit.innerHTML;
+    if (submit) submit.innerHTML = '<i class="fas fa-save"></i> Salvar alterações';
+
+    if (!form.querySelector('.btn-cancel-edit')) {
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'btn btn-ghost form-full btn-cancel-edit';
+        cancel.innerHTML = '<i class="fas fa-times"></i> Cancelar edição';
+        cancel.addEventListener('click', () => cancelEdit(collection));
+        form.appendChild(cancel);
+    }
+    card?.classList.add('is-editing');
+    card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    form.querySelector('input, select, textarea')?.focus({ preventScroll: true });
+}
+
+function cancelEdit(collection) {
+    const config = EDITABLE[collection];
+    if (!config) return;
+    const form = document.getElementById(config.form);
+    if (form) {
+        form.reset();
+        const card = form.closest('.card');
+        const title = card?.querySelector('.card-title');
+        const submit = form.querySelector('button[type="submit"]');
+        if (title?.dataset.original) title.innerHTML = title.dataset.original;
+        if (submit?.dataset.original) submit.innerHTML = submit.dataset.original;
+        form.querySelector('.btn-cancel-edit')?.remove();
+        card?.classList.remove('is-editing');
+    }
+    if (editing.collection === collection) {
+        editing.collection = null;
+        editing.id = null;
+    }
+}
+
+async function deleteRecord(collection, id) {
+    const config = EDITABLE[collection];
+    const item = DB[collection]?.find(x => x.id === id);
+    if (!config || !item) return;
+
+    if (!confirm(`Excluir ${config.label.toLowerCase()} "${config.name(item)}"? Esta ação não pode ser desfeita.`)) return;
+
+    try {
+        const userId = window.auth.currentUser.uid;
+        await window.db.collection('users').doc(userId).collection(collection).doc(id).delete();
+        DB[collection] = DB[collection].filter(x => x.id !== id);
+        if (editing.collection === collection && editing.id === id) cancelEdit(collection);
+        config.refresh();
+        notify.success(`${config.label} excluído(a).`);
+    } catch (error) {
+        console.error('Erro ao excluir:', error);
+        notify.error('Erro ao excluir. Tente novamente.');
+    }
+}
+
+// Adiciona um valor ao que já foi guardado em uma meta.
+async function addToGoal(id) {
+    const goal = DB.goals.find(g => g.id === id);
+    if (!goal) return;
+    const input = prompt(`Quanto você quer adicionar à meta "${goal.name}"? (use valor negativo para retirar)`, '');
+    if (input === null) return;
+    const value = parseAmount(input);
+    if (!Number.isFinite(value) || value === 0) {
+        notify.error('Informe um valor válido.');
+        return;
+    }
+    const currentAmount = Math.max(0, Math.round(((goal.currentAmount || 0) + value) * 100) / 100);
+    try {
+        const userId = window.auth.currentUser.uid;
+        await window.db.collection('users').doc(userId).collection('goals').doc(id).update({
+            currentAmount,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        goal.currentAmount = currentAmount;
+        EDITABLE.goals.refresh();
+        notify.success(currentAmount >= goal.targetAmount
+            ? `🎉 Meta "${goal.name}" atingida!`
+            : `Meta atualizada: ${formatCurrency(currentAmount)} de ${formatCurrency(goal.targetAmount)}.`);
+    } catch (error) {
+        console.error('Erro ao atualizar meta:', error);
+        notify.error('Erro ao atualizar a meta.');
+    }
+}
+
+// Exclui uma categoria criada pelo usuário (lançamentos antigos mantêm o nome).
+async function deleteCategory(id) {
+    const cat = DB.categories.find(c => c.id === id);
+    if (!cat) return;
+    if (!confirm(`Excluir a categoria "${cat.name}"? Os lançamentos já registrados continuam com esse nome.`)) return;
+    try {
+        const userId = window.auth.currentUser.uid;
+        await window.db.collection('users').doc(userId).collection('categories').doc(id).delete();
+        DB.categories = DB.categories.filter(c => c.id !== id);
+        updateCategoriesList();
+        loadCategories();
+        notify.success('Categoria excluída.');
+    } catch (error) {
+        console.error('Erro ao excluir categoria:', error);
+        notify.error('Erro ao excluir categoria.');
+    }
+}
+
+// Um único listener para todos os botões de ação das listas.
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const { action, collection, id } = btn.dataset;
+    if (action === 'edit') startEdit(collection, id);
+    else if (action === 'delete') deleteRecord(collection, id);
+    else if (action === 'goal-add') addToGoal(id);
+    else if (action === 'delete-category') deleteCategory(id);
+});
 
 // ========== FUNÇÕES AUXILIARES ==========
 function showAlert(id, message) {
