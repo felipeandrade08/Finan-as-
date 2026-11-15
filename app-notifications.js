@@ -149,9 +149,9 @@ function checkBudgetNotifications() {
         const percentage = (spent / budget.amount) * 100;
         
         if (percentage >= 100) {
-            notify.error(`Orçamento de "${budget.category}" excedido! Gasto: R$ ${spent.toFixed(2)} / R$ ${budget.amount.toFixed(2)}`, 0);
+            notify.error(`Orçamento de "${budget.category}" excedido! Gasto: ${formatCurrency(spent)} / ${formatCurrency(budget.amount)}`, 0);
         } else if (percentage >= 80) {
-            notify.warning(`Orçamento de "${budget.category}" em 80%! Gasto: R$ ${spent.toFixed(2)} / R$ ${budget.amount.toFixed(2)}`, 0);
+            notify.warning(`Orçamento de "${budget.category}" em 80%! Gasto: ${formatCurrency(spent)} / ${formatCurrency(budget.amount)}`, 0);
         }
     });
 }

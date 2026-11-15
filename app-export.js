@@ -60,7 +60,7 @@ async function exportToPDF() {
         doc.setFont(undefined, 'bold');
         doc.text('Receitas', 30, yPos + 8);
         doc.setFontSize(14);
-        doc.text(`R$ ${totals.income.toFixed(2)}`, 30, yPos + 18);
+        doc.text(formatCurrency(totals.income), 30, yPos + 18);
         
         // Box de despesas (vermelho)
         const xPos2 = 20 + (pageWidth - 50) / 3 + 5;
@@ -71,7 +71,7 @@ async function exportToPDF() {
         doc.setFontSize(11);
         doc.text('Despesas', xPos2 + 10, yPos + 8);
         doc.setFontSize(14);
-        doc.text(`R$ ${totals.expense.toFixed(2)}`, xPos2 + 10, yPos + 18);
+        doc.text(formatCurrency(totals.expense), xPos2 + 10, yPos + 18);
         
         // Box de saldo (azul)
         const xPos3 = 20 + 2 * ((pageWidth - 50) / 3 + 5);
@@ -82,7 +82,7 @@ async function exportToPDF() {
         doc.setFontSize(11);
         doc.text('Saldo', xPos3 + 10, yPos + 8);
         doc.setFontSize(14);
-        doc.text(`R$ ${totals.balance.toFixed(2)}`, xPos3 + 10, yPos + 18);
+        doc.text(formatCurrency(totals.balance), xPos3 + 10, yPos + 18);
         
         yPos += 35;
         
@@ -94,7 +94,7 @@ async function exportToPDF() {
         
         yPos += 8;
         
-        const recentTransactions = DB.transactions.slice(-10).reverse();
+        const recentTransactions = sortByDate(DB.transactions).slice(-10).reverse();
         
         if (recentTransactions.length > 0) {
             doc.setFontSize(9);
@@ -108,16 +108,15 @@ async function exportToPDF() {
                 }
                 
                 const date = parseLocalDate(t.date).toLocaleDateString('pt-BR');
-                const typeIcon = t.type === 'income' ? '↑' : '↓';
                 const amountColor = t.type === 'income' ? [22, 163, 74] : [220, 38, 38];
                 
                 doc.setTextColor(60, 60, 60);
                 doc.text(`${date}`, 20, yPos);
-                doc.text(`${typeIcon} ${t.category}`, 50, yPos);
+                doc.text(String(t.category), 50, yPos);
                 
                 doc.setTextColor(...amountColor);
                 doc.setFont(undefined, 'bold');
-                doc.text(`${t.type === 'income' ? '+' : '-'} R$ ${t.amount.toFixed(2)}`, pageWidth - 50, yPos, { align: 'right' });
+                doc.text(`${t.type === 'income' ? '+' : '-'} ${formatCurrency(t.amount)}`, pageWidth - 20, yPos, { align: 'right' });
                 doc.setFont(undefined, 'normal');
                 
                 yPos += 7;
@@ -152,11 +151,17 @@ async function exportToPDF() {
         }
         
         // ========== RODAPÉ ==========
+        // Rodapé em todas as páginas, com numeração correta.
         const footerY = pageHeight - 15;
-        doc.setFontSize(8);
-        doc.setTextColor(150, 150, 150);
-        doc.text('Gerado por FinControl Pro - Sistema de Gestão Financeira', pageWidth / 2, footerY, { align: 'center' });
-        doc.text(`Página 1 de ${doc.internal.pages.length - 1}`, pageWidth - 20, footerY, { align: 'right' });
+        const totalPages = doc.getNumberOfPages();
+        for (let page = 1; page <= totalPages; page++) {
+            doc.setPage(page);
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.setFont(undefined, 'normal');
+            doc.text('Gerado por FinControl Pro - Sistema de Gestão Financeira', pageWidth / 2, footerY, { align: 'center' });
+            doc.text(`Página ${page} de ${totalPages}`, pageWidth - 20, footerY, { align: 'right' });
+        }
         
         // Salvar
         const filename = `fincontrol-relatorio-${todayISO()}.pdf`;
@@ -171,6 +176,19 @@ async function exportToPDF() {
 }
 
 // ========== EXPORTAR PARA EXCEL ==========
+// Células numéricas formatadas (somam e ordenam no Excel, ao contrário de texto).
+const XLSX_MONEY = '"R$" #,##0.00;-"R$" #,##0.00';
+function xlsMoney(value) {
+    return { t: 'n', v: Math.round((Number(value) || 0) * 100) / 100, z: XLSX_MONEY };
+}
+function xlsPercent(ratio) {
+    return { t: 'n', v: Number.isFinite(ratio) ? ratio : 0, z: '0.0%' };
+}
+function xlsDate(value) {
+    const d = parseLocalDate(value);
+    return isNaN(d) ? '-' : { t: 'd', v: d, z: 'dd/mm/yyyy' };
+}
+
 function exportToExcel() {
     try {
         notify.info('Gerando planilha Excel...');
@@ -187,9 +205,9 @@ function exportToExcel() {
         summaryData.push(['Data de Geração:', new Date().toLocaleDateString('pt-BR')]);
         summaryData.push([]);
         summaryData.push(['RESUMO FINANCEIRO']);
-        summaryData.push(['Receitas Totais:', `R$ ${totals.income.toFixed(2)}`]);
-        summaryData.push(['Despesas Totais:', `R$ ${totals.expense.toFixed(2)}`]);
-        summaryData.push(['Saldo:', `R$ ${totals.balance.toFixed(2)}`]);
+        summaryData.push(['Receitas Totais:', xlsMoney(totals.income)]);
+        summaryData.push(['Despesas Totais:', xlsMoney(totals.expense)]);
+        summaryData.push(['Saldo:', xlsMoney(totals.balance)]);
         summaryData.push([]);
         
         const ws_summary = XLSX.utils.aoa_to_sheet(summaryData);
@@ -198,12 +216,12 @@ function exportToExcel() {
         // ========== ABA 2: TRANSAÇÕES ==========
         const transactionsData = [['Data', 'Tipo', 'Categoria', 'Valor', 'Descrição']];
         
-        DB.transactions.forEach(t => {
+        sortByDate(DB.transactions).forEach(t => {
             transactionsData.push([
-                parseLocalDate(t.date).toLocaleDateString('pt-BR'),
+                xlsDate(t.date),
                 t.type === 'income' ? 'Receita' : 'Despesa',
                 t.category,
-                t.amount.toFixed(2),
+                xlsMoney(t.type === 'income' ? t.amount : -t.amount),
                 t.description || '-'
             ]);
         });
@@ -220,14 +238,12 @@ function exportToExcel() {
                 .reduce((sum, t) => sum + t.amount, 0);
             
             const available = b.amount - spent;
-            const percentage = ((spent / b.amount) * 100).toFixed(1);
-            
             budgetsData.push([
                 b.category,
-                b.amount.toFixed(2),
-                spent.toFixed(2),
-                available.toFixed(2),
-                `${percentage}%`
+                xlsMoney(b.amount),
+                xlsMoney(spent),
+                xlsMoney(available),
+                xlsPercent(spent / b.amount)
             ]);
         });
         
@@ -239,15 +255,13 @@ function exportToExcel() {
         
         DB.goals.forEach(g => {
             const remaining = g.targetAmount - g.currentAmount;
-            const percentage = ((g.currentAmount / g.targetAmount) * 100).toFixed(1);
-            
             goalsData.push([
                 g.name,
-                g.targetAmount.toFixed(2),
-                g.currentAmount.toFixed(2),
-                remaining.toFixed(2),
-                `${percentage}%`,
-                parseLocalDate(g.deadline).toLocaleDateString('pt-BR')
+                xlsMoney(g.targetAmount),
+                xlsMoney(g.currentAmount),
+                xlsMoney(Math.max(remaining, 0)),
+                xlsPercent(g.currentAmount / g.targetAmount),
+                xlsDate(g.deadline)
             ]);
         });
         
@@ -259,16 +273,14 @@ function exportToExcel() {
         
         DB.investments.forEach(inv => {
             const profit = inv.currentValue - inv.amount;
-            const returnRate = ((profit / inv.amount) * 100).toFixed(2);
-            
             investmentsData.push([
                 inv.name,
-                inv.type,
-                inv.amount.toFixed(2),
-                inv.currentValue.toFixed(2),
-                profit.toFixed(2),
-                `${returnRate}%`,
-                parseLocalDate(inv.date).toLocaleDateString('pt-BR')
+                INVESTMENT_TYPES[inv.type] || inv.type,
+                xlsMoney(inv.amount),
+                xlsMoney(inv.currentValue),
+                xlsMoney(profit),
+                xlsPercent(profit / inv.amount),
+                xlsDate(inv.date)
             ]);
         });
         
@@ -283,7 +295,7 @@ function exportToExcel() {
             
             billsData.push([
                 bill.type,
-                bill.amount.toFixed(2),
+                xlsMoney(bill.amount),
                 bill.dueDay,
                 status.text,
                 bill.notes || '-'

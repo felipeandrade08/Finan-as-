@@ -456,8 +456,31 @@ function showMainApp() {
     if (DB.currentUser) {
         document.getElementById('user-name').textContent = DB.currentUser.name;
     }
-    navigateTo('dashboard');
+    // Atalhos do app instalado: ./?action=transaction abre direto em Lançamentos.
+    const action = new URLSearchParams(location.search).get('action');
+    const shortcutPages = { transaction: 'transactions', dashboard: 'dashboard' };
+    navigateTo(shortcutPages[action] || 'dashboard');
+    if (action) history.replaceState(null, '', location.pathname);
+    if (action === 'transaction') {
+        document.getElementById('transaction-form')?.closest('.card')?.scrollIntoView({ block: 'start' });
+    }
+
+    if (!navigator.onLine) {
+        notify.warning('Você está offline. Seus dados serão carregados quando a conexão voltar.', 0);
+    }
 }
+
+// Ao recuperar a conexão, recarrega os dados que podem não ter vindo offline.
+window.addEventListener('online', async () => {
+    if (!DB.currentUser || !window.auth?.currentUser) return;
+    await loadUserDataFromFirebase(window.auth.currentUser.uid);
+    refreshCurrentPage();
+    notify.success('Conexão restabelecida. Dados atualizados.');
+});
+
+window.addEventListener('offline', () => {
+    if (DB.currentUser) notify.warning('Sem conexão. Alterações só poderão ser salvas quando a internet voltar.');
+});
 
 function navigateTo(page) {
     document.querySelectorAll('.content-page').forEach(p => p.classList.add('hidden'));
