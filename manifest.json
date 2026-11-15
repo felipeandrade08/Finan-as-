@@ -2,12 +2,12 @@
   "id": "./",
   "name": "FinControl Pro - Controle Financeiro",
   "short_name": "FinControl",
-  "description": "Sistema completo de gestão financeira pessoal",
+  "description": "Controle financeiro pessoal: lançamentos, contas, metas e investimentos.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0d151c",
-  "theme_color": "#06b6d4",
+  "background_color": "#0B3B3C",
+  "theme_color": "#0B3B3C",
   "orientation": "portrait-primary",
   "icons": [
     {

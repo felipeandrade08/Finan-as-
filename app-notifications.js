@@ -27,35 +27,33 @@ class NotificationSystem {
         
         const icon = this.getIcon(type);
         
+        notification.setAttribute('role', type === 'error' ? 'alert' : 'status');
         notification.innerHTML = `
-            <div style="display: flex; align-items: flex-start; gap: 12px;">
-                <div style="font-size: 24px; color: ${this.getColor(type)};">
-                    <i class="fas fa-${icon}"></i>
-                </div>
-                <div style="flex: 1;">
-                    <div style="font-weight: 700; font-size: 15px; margin-bottom: 4px; color: var(--text-primary);">
-                        ${this.getTitle(type)}
-                    </div>
-                    <div class="notification-message" style="font-size: 14px; color: var(--text-secondary);"></div>
-                </div>
-                <button onclick="this.closest('.notification').remove()" 
-                        style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 18px; padding: 0;">
-                    <i class="fas fa-times"></i>
-                </button>
+            <i class="fas fa-${icon} notification-icon" aria-hidden="true"></i>
+            <div class="notification-body">
+                <p class="notification-title">${this.getTitle(type)}</p>
+                <p class="notification-message"></p>
             </div>
+            <button type="button" class="notification-close" aria-label="Fechar aviso">
+                <i class="fas fa-xmark" aria-hidden="true"></i>
+            </button>
         `;
+        notification.querySelector('.notification-close').addEventListener('click', () => notification.remove());
         
         // Texto puro: mensagens podem conter nomes digitados pelo usuário.
         notification.querySelector('.notification-message').textContent = message;
 
         this.container.appendChild(notification);
+
+        // No máximo 3 avisos visíveis: os mais antigos saem primeiro.
+        const visible = this.container.querySelectorAll('.notification');
+        for (let i = 0; i < visible.length - 3; i++) visible[i].remove();
         
         // Auto remover após duração
         if (duration > 0) {
             setTimeout(() => {
-                notification.style.opacity = '0';
-                notification.style.transform = 'translateX(100%)';
-                setTimeout(() => notification.remove(), 300);
+                notification.classList.add('is-leaving');
+                setTimeout(() => notification.remove(), 250);
             }, duration);
         }
         
@@ -64,30 +62,28 @@ class NotificationSystem {
     
     getIcon(type) {
         const icons = {
-            success: 'check-circle',
-            error: 'exclamation-circle',
-            warning: 'exclamation-triangle',
-            info: 'info-circle'
+            success: 'circle-check',
+            error: 'circle-exclamation',
+            warning: 'triangle-exclamation',
+            info: 'circle-info'
         };
         return icons[type] || 'bell';
     }
     
-    getColor(type) {
-        const colors = {
-            success: '#22c55e',
-            error: '#ef4444',
-            warning: '#f59e0b',
-            info: '#3b82f6'
-        };
-        return colors[type] || '#3b82f6';
+    // Mostra um aviso só uma vez por sessão (evita repetir a cada atualização da tela).
+    once(key, type, message, duration = 9000) {
+        this.shown = this.shown || new Set();
+        if (this.shown.has(key)) return null;
+        this.shown.add(key);
+        return this.show(message, type, duration);
     }
-    
+
     getTitle(type) {
         const titles = {
-            success: 'Sucesso!',
-            error: 'Erro!',
-            warning: 'Atenção!',
-            info: 'Informação'
+            success: 'Pronto',
+            error: 'Não foi possível concluir',
+            warning: 'Atenção',
+            info: 'Aviso'
         };
         return titles[type] || 'Notificação';
     }
@@ -129,11 +125,11 @@ function checkBillsNotifications() {
             
             // Notificar contas vencidas
             if (daysUntilDue < 0) {
-                notify.error(`Conta "${bill.type}" está vencida! Venceu no dia ${bill.dueDay}.`, 0);
+                notify.once(`Conta "${bill.type}" está vencida! Venceu no dia ${bill.dueDay}.`, 'error', `Conta "${bill.type}" está vencida! Venceu no dia ${bill.dueDay}.`);
             }
             // Notificar contas próximas do vencimento (3 dias)
             else if (daysUntilDue <= 3 && daysUntilDue > 0) {
-                notify.warning(`Conta "${bill.type}" vence em ${daysUntilDue} dia(s)!`, 0);
+                notify.once(`Conta "${bill.type}" vence em ${daysUntilDue} dia(s)!`, 'warning', `Conta "${bill.type}" vence em ${daysUntilDue} dia(s)!`);
             }
         }
     });
@@ -149,9 +145,9 @@ function checkBudgetNotifications() {
         const percentage = (spent / budget.amount) * 100;
         
         if (percentage >= 100) {
-            notify.error(`Orçamento de "${budget.category}" excedido! Gasto: ${formatCurrency(spent)} / ${formatCurrency(budget.amount)}`, 0);
+            notify.once(`Orçamento de "${budget.category}" excedido! Gasto: ${formatCurrency(spent)} / ${formatCurrency(budget.amount)}`, 'error', `Orçamento de "${budget.category}" excedido! Gasto: ${formatCurrency(spent)} / ${formatCurrency(budget.amount)}`);
         } else if (percentage >= 80) {
-            notify.warning(`Orçamento de "${budget.category}" em 80%! Gasto: ${formatCurrency(spent)} / ${formatCurrency(budget.amount)}`, 0);
+            notify.once(`Orçamento de "${budget.category}" em 80%! Gasto: ${formatCurrency(spent)} / ${formatCurrency(budget.amount)}`, 'warning', `Orçamento de "${budget.category}" em 80%! Gasto: ${formatCurrency(spent)} / ${formatCurrency(budget.amount)}`);
         }
     });
 }
@@ -162,9 +158,9 @@ function checkGoalsNotifications() {
         const percentage = (goal.currentAmount / goal.targetAmount) * 100;
         
         if (percentage >= 100) {
-            notify.success(`🎉 Parabéns! Meta "${goal.name}" atingida!`, 0);
+            notify.once(`Meta "${goal.name}" atingida. Parabéns!`, 'success', `Meta "${goal.name}" atingida. Parabéns!`);
         } else if (percentage >= 75 && percentage < 100) {
-            notify.info(`Meta "${goal.name}" está em ${percentage.toFixed(0)}%! Continue assim!`, 0);
+            notify.once(`Meta "${goal.name}" está em ${percentage.toFixed(0)}%.`, 'info', `Meta "${goal.name}" está em ${percentage.toFixed(0)}%.`);
         }
     });
 }

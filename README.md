@@ -6,9 +6,9 @@ O projeto reúne em um só lugar o acompanhamento de receitas, despesas, orçame
 
 ## Funcionalidades
 
-- **Dashboard:** visão geral das receitas, despesas e saldo.
+- **Início:** quanto sobrou no período (mês, semana, ano ou tudo), para onde foi o dinheiro, últimos lançamentos e metas.
 - **Lançamentos:** registro, edição e exclusão de receitas e despesas, com busca e filtros por tipo, categoria e mês.
-- **Relatórios:** gráficos de evolução financeira e distribuição de gastos.
+- **Relatórios:** saldo acumulado, gastos por categoria e resultado de cada mês.
 - **Orçamentos:** acompanhamento de limites e gastos por categoria.
 - **Metas:** controle do progresso de objetivos financeiros, com registro do valor guardado.
 - **Investimentos:** organização e visualização da carteira.
@@ -16,6 +16,7 @@ O projeto reúne em um só lugar o acompanhamento de receitas, despesas, orçame
 - **Exportação:** geração de relatórios em PDF e planilhas Excel.
 - **Backup:** exportação e restauração dos dados em JSON.
 - **Personalização:** tema claro, escuro e automático.
+- **Celular:** barra de abas com atalho para novo lançamento e formulários recolhíveis.
 - **PWA:** instalação no dispositivo e abertura offline da interface (os dados financeiros exigem conexão).
 
 ## Tecnologias
@@ -24,6 +25,7 @@ O projeto reúne em um só lugar o acompanhamento de receitas, despesas, orçame
 - Firebase Authentication para autenticação.
 - Cloud Firestore para persistência dos dados.
 - Chart.js para gráficos.
+- Fonte Instrument Sans (licença SIL OFL), servida pelo próprio app em `fonts/`.
 - jsPDF para relatórios PDF.
 - SheetJS para exportação Excel.
 - Service Worker e Web App Manifest para recursos PWA.
@@ -33,14 +35,16 @@ O projeto reúne em um só lugar o acompanhamento de receitas, despesas, orçame
 | Arquivo | Responsabilidade |
 | --- | --- |
 | `index.html` | Estrutura da aplicação, configuração e carregamento dos módulos |
-| `styles-modern.css` | Layout, componentes, temas e responsividade |
+| `styles-modern.css` | Design system (cores, tipografia), componentes, temas claro/escuro e responsividade |
 | `app.js` | Autenticação, dados e funcionalidades principais |
 | `app-charts.js` | Gráficos e indicadores |
 | `app-notifications.js` | Notificações e avisos |
 | `app-export.js` | Exportação PDF e Excel |
 | `manifest.json` | Metadados e configuração de instalação PWA |
 | `sw.js` | Cache dos recursos e estratégia offline |
-| `icon.svg`, `icon-*.png`, `favicon-48.png`, `apple-touch-icon.png`, `logo-fincontrol-pro.svg` | Ícones e identidade visual |
+| `icon.svg`, `icon-*.png`, `favicon-48.png`, `apple-touch-icon.png` | Ícone do app (símbolo "F") em todos os tamanhos, incluindo maskable |
+| `logo-fincontrol-pro.svg`, `logo-fincontrol-pro-dark.svg` | Logo completa para fundo claro e escuro |
+| `fonts/` | Fonte Instrument Sans e sua licença |
 
 ## Executar localmente
 

@@ -2,7 +2,7 @@
 // FINCONTROL PRO - SERVICE WORKER
 // Atualize VERSION a cada publicação para renovar o cache.
 // =============================================
-const VERSION = 'fincontrol-v5.0.0';
+const VERSION = 'fincontrol-v6.0.0';
 const SHELL_CACHE = `${VERSION}-shell`;
 const CDN_CACHE = `${VERSION}-cdn`;
 
@@ -21,7 +21,9 @@ const SHELL_FILES = [
   './icon-512.png',
   './favicon-48.png',
   './apple-touch-icon.png',
-  './logo-fincontrol-pro.svg'
+  './logo-fincontrol-pro.svg',
+  './logo-fincontrol-pro-dark.svg',
+  './fonts/instrument-sans.woff2'
 ];
 
 // Bibliotecas externas com versão fixa na URL: podem vir direto do cache.

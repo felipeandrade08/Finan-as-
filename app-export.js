@@ -16,7 +16,7 @@ async function exportToPDF() {
         
         // ========== CABEÇALHO ==========
         doc.setFontSize(24);
-        doc.setTextColor(30, 58, 138); // Azul da logo
+        doc.setTextColor(11, 59, 60); // Verde-petróleo da marca
         doc.setFont(undefined, 'bold');
         doc.text('FinControl Pro', pageWidth / 2, yPos, { align: 'center' });
         
@@ -34,7 +34,7 @@ async function exportToPDF() {
         
         // Linha separadora
         yPos += 5;
-        doc.setDrawColor(30, 58, 138);
+        doc.setDrawColor(11, 59, 60);
         doc.setLineWidth(0.5);
         doc.line(20, yPos, pageWidth - 20, yPos);
         
@@ -42,7 +42,7 @@ async function exportToPDF() {
         
         // ========== RESUMO FINANCEIRO ==========
         doc.setFontSize(14);
-        doc.setTextColor(30, 58, 138);
+        doc.setTextColor(11, 59, 60);
         doc.setFont(undefined, 'bold');
         doc.text('Resumo Financeiro', 20, yPos);
         
@@ -54,9 +54,9 @@ async function exportToPDF() {
         doc.setFont(undefined, 'normal');
         
         // Box de receitas (verde)
-        doc.setFillColor(209, 250, 229);
+        doc.setFillColor(223, 243, 234);
         doc.roundedRect(20, yPos, (pageWidth - 50) / 3, 25, 3, 3, 'F');
-        doc.setTextColor(22, 163, 74);
+        doc.setTextColor(19, 121, 91);
         doc.setFont(undefined, 'bold');
         doc.text('Receitas', 30, yPos + 8);
         doc.setFontSize(14);
@@ -64,9 +64,9 @@ async function exportToPDF() {
         
         // Box de despesas (vermelho)
         const xPos2 = 20 + (pageWidth - 50) / 3 + 5;
-        doc.setFillColor(254, 226, 226);
+        doc.setFillColor(249, 228, 224);
         doc.roundedRect(xPos2, yPos, (pageWidth - 50) / 3, 25, 3, 3, 'F');
-        doc.setTextColor(220, 38, 38);
+        doc.setTextColor(185, 60, 43);
         doc.setFont(undefined, 'bold');
         doc.setFontSize(11);
         doc.text('Despesas', xPos2 + 10, yPos + 8);
@@ -75,9 +75,9 @@ async function exportToPDF() {
         
         // Box de saldo (azul)
         const xPos3 = 20 + 2 * ((pageWidth - 50) / 3 + 5);
-        doc.setFillColor(219, 234, 254);
+        doc.setFillColor(221, 247, 240);
         doc.roundedRect(xPos3, yPos, (pageWidth - 50) / 3, 25, 3, 3, 'F');
-        doc.setTextColor(30, 58, 138);
+        doc.setTextColor(11, 59, 60);
         doc.setFont(undefined, 'bold');
         doc.setFontSize(11);
         doc.text('Saldo', xPos3 + 10, yPos + 8);
@@ -88,7 +88,7 @@ async function exportToPDF() {
         
         // ========== TRANSAÇÕES RECENTES ==========
         doc.setFontSize(14);
-        doc.setTextColor(30, 58, 138);
+        doc.setTextColor(11, 59, 60);
         doc.setFont(undefined, 'bold');
         doc.text('Transações Recentes (últimas 10)', 20, yPos);
         
@@ -108,7 +108,7 @@ async function exportToPDF() {
                 }
                 
                 const date = parseLocalDate(t.date).toLocaleDateString('pt-BR');
-                const amountColor = t.type === 'income' ? [22, 163, 74] : [220, 38, 38];
+                const amountColor = t.type === 'income' ? [19, 121, 91] : [185, 60, 43];
                 
                 doc.setTextColor(60, 60, 60);
                 doc.text(`${date}`, 20, yPos);
@@ -128,6 +128,21 @@ async function exportToPDF() {
             yPos += 10;
         }
         
+        // Usa o gráfico visível (Relatórios ou Início), com fundo branco para o PDF.
+        const source = ['reports-evolution-chart', 'evolution-chart']
+            .map(id => document.getElementById(id))
+            .find(c => c && c.width && c.offsetParent !== null);
+        let canvas = null;
+        if (source) {
+            canvas = document.createElement('canvas');
+            canvas.width = source.width;
+            canvas.height = source.height;
+            const c2 = canvas.getContext('2d');
+            c2.fillStyle = '#ffffff';
+            c2.fillRect(0, 0, canvas.width, canvas.height);
+            c2.drawImage(source, 0, 0);
+        }
+
         // ========== GRÁFICO (capturar do canvas) ==========
         yPos += 10;
         
@@ -137,17 +152,18 @@ async function exportToPDF() {
         }
         
         doc.setFontSize(14);
-        doc.setTextColor(30, 58, 138);
+        doc.setTextColor(11, 59, 60);
         doc.setFont(undefined, 'bold');
-        doc.text('Evolução Financeira', 20, yPos);
+        doc.text(source && source.id === 'reports-evolution-chart' ? 'Saldo acumulado' : 'Entradas e saídas por mês', 20, yPos);
         
         yPos += 10;
         
-        const canvas = document.getElementById('evolution-chart');
         if (canvas) {
             const imgData = canvas.toDataURL('image/png');
-            doc.addImage(imgData, 'PNG', 20, yPos, pageWidth - 40, 80);
-            yPos += 90;
+            const imgW = pageWidth - 40;
+            const imgH = Math.min(imgW * (canvas.height / canvas.width), 100); // mantém a proporção
+            doc.addImage(imgData, 'PNG', 20, yPos, imgW, imgH);
+            yPos += imgH + 10;
         }
         
         // ========== RODAPÉ ==========
