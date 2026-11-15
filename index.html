@@ -343,10 +343,22 @@
             <label for="transaction-description">Descrição</label>
             <textarea id="transaction-description" rows="2" placeholder="Descrição opcional…"></textarea>
           </div>
+          <div class="form-group form-full recurring-option">
+            <label class="checkbox-label" for="transaction-recurring">
+              <input type="checkbox" id="transaction-recurring">
+              <span>Repetir todo mês neste mesmo dia (salário, aluguel, assinaturas)</span>
+            </label>
+          </div>
           <button type="submit" class="btn btn-primary form-full">
             <i class="fas fa-plus"></i> Adicionar lançamento
           </button>
         </form>
+      </div>
+
+      <div class="card hidden" id="recurring-card">
+        <h3 class="card-title">Lançamentos fixos</h3>
+        <p class="card-note">Criados automaticamente todo mês. Para mudar só um mês, edite o lançamento no histórico.</p>
+        <div id="recurring-list"></div>
       </div>
 
       <div class="card">
@@ -452,7 +464,14 @@
       </div>
 
       <div class="card">
-        <h3 class="card-title">Seus orçamentos</h3>
+        <div class="card-header-flex">
+          <h3 class="card-title">Seus orçamentos</h3>
+          <div class="month-nav" id="budgets-month-nav">
+            <button type="button" class="icon-btn" data-month="prev" aria-label="Mês anterior"><i class="fas fa-chevron-left"></i></button>
+            <span class="month-label" aria-live="polite"></span>
+            <button type="button" class="icon-btn" data-month="next" aria-label="Próximo mês"><i class="fas fa-chevron-right"></i></button>
+          </div>
+        </div>
         <p class="card-note" id="budgets-month-note"></p>
         <div id="budgets-list"></div>
       </div>

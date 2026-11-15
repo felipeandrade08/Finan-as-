@@ -1,0 +1,16 @@
+rules_version = '2';
+
+// Regras recomendadas para o FinControl Pro.
+// Cada usuário lê e escreve apenas os próprios dados, em users/{uid} e
+// em todas as subcoleções (transactions, budgets, goals, investments,
+// creditCards, monthlyBills, categories, recurring).
+//
+// Para aplicar: Firebase Console > Firestore Database > Regras,
+// cole este conteúdo e clique em Publicar.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

@@ -8,8 +8,9 @@ O projeto reúne em um só lugar o acompanhamento de receitas, despesas, orçame
 
 - **Início:** quanto sobrou no período (mês, semana, ano ou tudo), para onde foi o dinheiro, últimos lançamentos e metas.
 - **Lançamentos:** registro, edição e exclusão de receitas e despesas, com busca e filtros por tipo, categoria e mês.
+- **Lançamentos fixos:** salário, aluguel e assinaturas criados automaticamente todo mês; cada mês pode ser editado ou excluído sem afetar os outros.
 - **Relatórios:** saldo acumulado, gastos por categoria e resultado de cada mês.
-- **Orçamentos:** limite mensal por categoria, contando só os gastos do mês (inclusive parcelas do cartão).
+- **Orçamentos:** limite mensal por categoria, contando só os gastos do mês (inclusive parcelas do cartão), com navegação pelos meses anteriores e comparação com a média dos 3 meses antes.
 - **Metas:** controle do progresso de objetivos financeiros, com registro do valor guardado.
 - **Investimentos:** organização e visualização da carteira.
 - **Cartões:** compras parceladas; cada parcela entra nos gastos do mês em que vence.
@@ -46,6 +47,7 @@ O projeto reúne em um só lugar o acompanhamento de receitas, despesas, orçame
 | `icon.svg`, `icon-*.png`, `favicon-48.png`, `apple-touch-icon.png` | Ícone do app (símbolo "F") em todos os tamanhos, incluindo maskable |
 | `logo-fincontrol-pro.svg`, `logo-fincontrol-pro-dark.svg` | Logo completa para fundo claro e escuro |
 | `fonts/` | Fonte Instrument Sans e sua licença |
+| `firestore.rules` | Regras de segurança recomendadas para o Firestore |
 
 ## Executar localmente
 
@@ -77,7 +79,7 @@ O projeto utiliza Firebase Authentication e Cloud Firestore.
 
 ### Regras recomendadas do Firestore
 
-As regras devem garantir que cada usuário acesse somente os documentos associados ao próprio UID. Ajuste a estrutura caso a organização das coleções seja alterada:
+As regras devem garantir que cada usuário acesse somente os documentos associados ao próprio UID. O arquivo `firestore.rules` traz a versão recomendada, pronta para colar em **Firestore Database → Regras**. Ela cobre todas as subcoleções do usuário, inclusive `recurring` (lançamentos fixos). Se as suas regras listam coleção por coleção, inclua `recurring`, ou os lançamentos fixos não serão salvos.
 
 ```javascript
 rules_version = '2';

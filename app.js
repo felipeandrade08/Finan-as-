@@ -12,6 +12,7 @@ const DB = {
     investments: [],
     creditCards: [],
     monthlyBills: [],
+    recurring: [],
     currentUser: null
 };
 
@@ -32,6 +33,7 @@ const DEFAULT_CATEGORIES = [
 
 let currentFilter = 'month';
 let transactionsLimit = 30;
+let budgetMonthOffset = 0; // 0 = mês atual, -1 = mês passado...
 
 const INVESTMENT_TYPES = {
     'acoes': 'Ações', 'fundos': 'Fundos', 'renda-fixa': 'Renda Fixa', 'tesouro': 'Tesouro Direto',
@@ -104,6 +106,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 
                 await loadUserDataFromFirebase(user.uid);
+                try {
+                    await syncRecurring();
+                } catch (error) {
+                    console.error('Erro ao gerar lançamentos fixos:', error);
+                }
                 showMainApp();
             } else {
                 console.log('❌ Nenhum usuário autenticado');
@@ -193,6 +200,12 @@ function setupEventListeners() {
     document.getElementById('restore-btn')?.addEventListener('change', handleRestore);
     setupTransactionFilters();
     setupCollapsibleForms();
+    document.getElementById('budgets-month-nav')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-month]');
+        if (!btn || btn.disabled) return;
+        budgetMonthOffset = Math.min(0, budgetMonthOffset + (btn.dataset.month === 'next' ? 1 : -1));
+        updateBudgetsList();
+    });
     document.getElementById('clear-data-btn')?.addEventListener('click', handleClearData);
 
     // Theme toggle
@@ -495,6 +508,15 @@ async function loadUserDataFromFirebase(userId) {
             ...doc.data()
         }));
         
+        try {
+            const recurringSnap = await window.db.collection('users').doc(userId)
+                .collection('recurring').get();
+            DB.recurring = recurringSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (error) {
+            DB.recurring = [];
+            console.warn('Lançamentos fixos indisponíveis (verifique as regras do Firestore):', error);
+        }
+
         console.log('✅ Dados carregados do Firebase:', {
             transactions: DB.transactions.length,
             budgets: DB.budgets.length,
@@ -537,6 +559,7 @@ function showMainApp() {
 window.addEventListener('online', async () => {
     if (!DB.currentUser || !window.auth?.currentUser) return;
     await loadUserDataFromFirebase(window.auth.currentUser.uid);
+    await syncRecurring().catch(error => console.error(error));
     refreshCurrentPage();
     notify.success('Conexão restabelecida. Dados atualizados.');
 });
@@ -569,12 +592,14 @@ function navigateTo(page) {
             break;
         case 'transactions':
             updateTransactionsList();
+            updateRecurringList();
             loadCategories();
             break;
         case 'reports':
             updateReports();
             break;
         case 'budgets':
+            budgetMonthOffset = 0;
             updateBudgetsList();
             break;
         case 'goals':
@@ -608,6 +633,27 @@ async function handleAddTransaction(e) {
 
     if (!type || !(amount > 0) || !category || !date) {
         notify.error('Preencha todos os campos obrigatórios');
+        return;
+    }
+
+    const repeat = document.getElementById('transaction-recurring');
+    if (repeat?.checked && !(editing.collection === 'transactions' && editing.id)) {
+        try {
+            const count = await createRecurring({ type, amount, category, date, description });
+            document.getElementById('transaction-form').reset();
+            fillDefaultDates();
+            const day = parseLocalDate(date).getDate();
+            notify.success(count
+                ? `Lançamento fixo criado. Ele se repete todo dia ${day}${count > 1 ? ` (${count} meses lançados desde o início)` : ''}.`
+                : `Lançamento fixo criado. O primeiro aparece em ${formatDate(date)}.`);
+            EDITABLE.transactions.refresh();
+            updateRecurringList();
+        } catch (error) {
+            console.error('Erro ao criar lançamento fixo:', error);
+            notify.error(error?.code === 'permission-denied'
+                ? 'O Firestore recusou a coleção "recurring". Libere-a nas regras de segurança (veja o README).'
+                : 'Erro ao criar lançamento fixo.');
+        }
         return;
     }
 
@@ -676,7 +722,7 @@ function updateTransactionsList() {
                 </div>
                 <div class="transaction-details">
                     <h4>${escapeHTML(t.description || t.category)}</h4>
-                    <p>${escapeHTML(t.category)}</p>
+                    <p>${escapeHTML(t.category)}${t.seriesId ? ' <span class="tag">Fixo</span>' : ''}</p>
                     <small>${formatDate(t.date)}</small>
                 </div>
             </div>
@@ -962,15 +1008,46 @@ function updateBudgetsList() {
         return;
     }
 
-    const month = currentMonthName();
+    const now = new Date();
+    const ref = new Date(now.getFullYear(), now.getMonth() + budgetMonthOffset, 1);
+    const monthLabel = ref.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    const isCurrent = budgetMonthOffset === 0;
+
+    // Navegação entre meses (só até o mês atual).
+    const nav = document.getElementById('budgets-month-nav');
+    if (nav) {
+        nav.querySelector('.month-label').textContent = monthLabel;
+        nav.querySelector('[data-month="next"]').disabled = isCurrent;
+    }
     const note = document.getElementById('budgets-month-note');
-    if (note) note.textContent = `Gastos de ${month}, incluindo as parcelas do cartão que vencem neste mês.`;
+    if (note) note.textContent = isCurrent
+        ? 'Gastos deste mês, incluindo as parcelas do cartão que vencem nele.'
+        : `Gastos de ${monthLabel}. Os limites são os de hoje.`;
+
+    // Média dos 3 meses anteriores ao mês exibido, para comparar.
+    // Considera só meses a partir do primeiro lançamento, para não puxar a média para baixo.
+    const ledgerDates = getLedger().map(t => parseLocalDate(t.date)).filter(d => !isNaN(d));
+    const firstMonth = ledgerDates.length
+        ? new Date(Math.min(...ledgerDates.map(d => new Date(d.getFullYear(), d.getMonth(), 1).getTime())))
+        : null;
+    const previousAverage = (category) => {
+        let sum = 0, months = 0;
+        for (let i = 1; i <= 3; i++) {
+            const month = new Date(ref.getFullYear(), ref.getMonth() - i, 1);
+            if (!firstMonth || month < firstMonth) break;
+            sum += getMonthSpending(category, month);
+            months++;
+        }
+        return months ? sum / months : 0;
+    };
+
     container.innerHTML = DB.budgets.map(b => {
-        // Orçamento é mensal: conta só os gastos do mês atual (incluindo parcelas do cartão).
-        const spent = getMonthSpending(b.category);
+        const spent = getMonthSpending(b.category, ref);
         const percentage = b.amount > 0 ? (spent / b.amount) * 100 : 0;
         const status = percentage >= 100 ? 'danger' : percentage >= 80 ? 'warning' : 'success';
         const left = b.amount - spent;
+        const average = previousAverage(b.category);
+        const diff = average > 0 ? Math.round(((spent - average) / average) * 100) : null;
 
         return `
             <div class="budget-item">
@@ -986,8 +1063,9 @@ function updateBudgetsList() {
                 </div>
                 <div class="budget-info">
                     <span>${formatCurrency(spent)} de ${formatCurrency(b.amount)}</span>
-                    <span class="${left < 0 ? 'expense' : ''}">${left >= 0 ? `Restam ${formatCurrency(left)}` : `Passou ${formatCurrency(-left)}`}</span>
+                    <span class="${left < 0 ? 'expense' : ''}">${left >= 0 ? `${isCurrent ? 'Restam' : 'Sobraram'} ${formatCurrency(left)}` : `Passou ${formatCurrency(-left)}`}</span>
                 </div>
+                ${average > 0 ? `<p class="budget-compare">Média dos meses anteriores: ${formatCurrency(average)}${diff !== null && diff !== 0 ? ` <span class="${diff > 0 ? 'expense' : 'income'}">(${diff > 0 ? '+' : ''}${diff}%)</span>` : ''}</p>` : ''}
             </div>
         `;
     }).join('');
@@ -1686,7 +1764,8 @@ function handleBackup() {
         investments: DB.investments,
         creditCards: DB.creditCards,
         monthlyBills: DB.monthlyBills,
-        categories: DB.categories
+        categories: DB.categories,
+        recurring: DB.recurring
     };
     
     const dataStr = JSON.stringify(data, null, 2);
@@ -1700,14 +1779,20 @@ function handleBackup() {
     notify.success('Backup realizado com sucesso!');
 }
 
-const USER_COLLECTIONS = ['transactions', 'budgets', 'goals', 'investments', 'creditCards', 'monthlyBills', 'categories'];
+const USER_COLLECTIONS = ['transactions', 'budgets', 'goals', 'investments', 'creditCards', 'monthlyBills', 'categories', 'recurring'];
 
 // Apaga todos os documentos das coleções do usuário no Firestore.
 async function deleteAllUserDocs(userId) {
     const refs = [];
     for (const collection of USER_COLLECTIONS) {
-        const snapshot = await window.db.collection('users').doc(userId).collection(collection).get();
-        snapshot.docs.forEach(doc => refs.push(doc.ref));
+        try {
+            const snapshot = await window.db.collection('users').doc(userId).collection(collection).get();
+            snapshot.docs.forEach(doc => refs.push(doc.ref));
+        } catch (error) {
+            // Coleção nova ainda não liberada nas regras do Firestore: segue com as demais.
+            if (collection === 'recurring' && error?.code === 'permission-denied') continue;
+            throw error;
+        }
     }
     await commitInChunks(refs, (batch, ref) => batch.delete(ref));
 }
@@ -1789,6 +1874,7 @@ function handleRestore(e) {
             DB.investments = restored.investments;
             DB.creditCards = restored.creditCards;
             DB.monthlyBills = restored.monthlyBills;
+            DB.recurring = restored.recurring;
             DB.categories = restored.categories.length ? restored.categories : await seedDefaultCategories(userId);
 
             notify.success('Backup restaurado com sucesso!');
@@ -1824,6 +1910,7 @@ async function handleClearData() {
         DB.investments = [];
         DB.creditCards = [];
         DB.monthlyBills = [];
+        DB.recurring = [];
         DB.categories = await seedDefaultCategories(userId);
 
         notify.success('Todos os dados foram apagados com sucesso!');
@@ -1918,6 +2005,150 @@ function fillDefaultDates() {
     });
 }
 
+// ========== LANÇAMENTOS FIXOS (repetem todo mês) ==========
+const monthKeyOf = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+// Data da ocorrência de uma série num mês (dia 31 vira o último dia em meses curtos).
+function occurrenceDate(series, year, month) {
+    return new Date(year, month, Math.min(series.day, daysInMonth(year, month)));
+}
+
+// Cria os lançamentos que faltam de cada série, do mês inicial até hoje.
+// O id do documento é fixo por série e mês, então rodar de novo nunca duplica.
+async function syncRecurring() {
+    if (!DB.recurring.length || !window.auth?.currentUser) return 0;
+    const userRef = window.db.collection('users').doc(window.auth.currentUser.uid);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const created = [];
+
+    for (const series of DB.recurring) {
+        const start = parseLocalDate(series.startDate);
+        if (isNaN(start)) continue;
+        const skipped = new Set(series.skipped || []);
+        const existing = new Set(DB.transactions
+            .filter(t => t.seriesId === series.id)
+            .map(t => monthKeyOf(parseLocalDate(t.date))));
+
+        for (let y = start.getFullYear(), m = start.getMonth(); ; m++) {
+            const date = occurrenceDate(series, y, m);
+            if (date > today) break;
+            const key = monthKeyOf(date);
+            if (existing.has(key) || skipped.has(key)) continue;
+
+            const transaction = {
+                type: series.type,
+                amount: series.amount,
+                category: series.category,
+                description: series.description,
+                date: toISODate(date),
+                seriesId: series.id
+            };
+            const ref = userRef.collection('transactions').doc(`${series.id}_${key}`);
+            await ref.set({ ...transaction, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+            created.push({ id: ref.id, ...transaction });
+            existing.add(key);
+        }
+    }
+
+    DB.transactions.push(...created);
+    return created.length;
+}
+
+async function createRecurring({ type, amount, category, description, date }) {
+    const userRef = window.db.collection('users').doc(window.auth.currentUser.uid);
+    const series = {
+        type, amount, category, description,
+        day: parseLocalDate(date).getDate(),
+        startDate: date,
+        skipped: []
+    };
+    const ref = await userRef.collection('recurring').add({
+        ...series,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    DB.recurring.push({ id: ref.id, ...series });
+    return syncRecurring();
+}
+
+// Muda o valor das próximas ocorrências (as já criadas não mudam).
+async function editRecurringAmount(id) {
+    const series = DB.recurring.find(s => s.id === id);
+    if (!series) return;
+    const input = prompt(`Novo valor de "${series.description || series.category}" a partir do próximo mês:`, String(series.amount).replace('.', ','));
+    if (input === null) return;
+    const amount = parseAmount(input);
+    if (!(amount > 0)) {
+        notify.error('Informe um valor válido, por exemplo 7.800,00.');
+        return;
+    }
+    try {
+        await window.db.collection('users').doc(window.auth.currentUser.uid)
+            .collection('recurring').doc(id).update({ amount });
+        series.amount = amount;
+        updateRecurringList();
+        notify.success(`Valor atualizado para ${formatCurrency(amount)} nos próximos meses.`);
+    } catch (error) {
+        console.error('Erro ao atualizar lançamento fixo:', error);
+        notify.error('Não foi possível atualizar. Tente de novo.');
+    }
+}
+
+async function stopRecurring(id) {
+    const series = DB.recurring.find(s => s.id === id);
+    if (!series) return;
+    if (!confirm(`Parar de repetir "${series.description || series.category}"? Os lançamentos já criados continuam no histórico.`)) return;
+    try {
+        await window.db.collection('users').doc(window.auth.currentUser.uid)
+            .collection('recurring').doc(id).delete();
+        DB.recurring = DB.recurring.filter(s => s.id !== id);
+        updateRecurringList();
+        notify.success('Lançamento fixo encerrado.');
+    } catch (error) {
+        console.error('Erro ao encerrar lançamento fixo:', error);
+        notify.error('Não foi possível encerrar. Tente de novo.');
+    }
+}
+
+// Ao excluir um lançamento de uma série, o mês fica marcado para não ser recriado.
+async function skipRecurringMonth(transaction) {
+    const series = DB.recurring.find(s => s.id === transaction.seriesId);
+    if (!series) return;
+    const key = monthKeyOf(parseLocalDate(transaction.date));
+    series.skipped = [...new Set([...(series.skipped || []), key])];
+    await window.db.collection('users').doc(window.auth.currentUser.uid)
+        .collection('recurring').doc(series.id).update({ skipped: series.skipped });
+}
+
+function updateRecurringList() {
+    const card = document.getElementById('recurring-card');
+    const container = document.getElementById('recurring-list');
+    if (!card || !container) return;
+    card.classList.toggle('hidden', DB.recurring.length === 0);
+    if (!DB.recurring.length) return;
+
+    const sorted = DB.recurring.slice().sort((a, b) => (a.type === b.type ? a.day - b.day : a.type === 'income' ? -1 : 1));
+    container.innerHTML = `<ul class="mini-list">${sorted.map(s => `
+        <li class="mini-row">
+            <span class="mini-dot ${s.type}" aria-hidden="true"></span>
+            <div class="mini-text">
+                <span class="mini-title">${escapeHTML(s.description || s.category)}</span>
+                <span class="mini-sub">${escapeHTML(s.category)}, todo dia ${s.day}</span>
+            </div>
+            <div class="mini-end">
+                <span class="mini-amount ${s.type}">${s.type === 'income' ? '+' : '−'} ${formatCurrency(s.amount)}</span>
+            </div>
+            <div class="item-actions">
+                <button type="button" class="icon-btn" data-action="recurring-edit" data-id="${escapeHTML(s.id)}" title="Mudar valor" aria-label="Mudar valor">
+                    <i class="fas fa-pen"></i>
+                </button>
+                <button type="button" class="icon-btn danger" data-action="recurring-stop" data-id="${escapeHTML(s.id)}" title="Parar de repetir" aria-label="Parar de repetir">
+                    <i class="fas fa-stop"></i>
+                </button>
+            </div>
+        </li>`).join('')}</ul>`;
+}
+
 // ========== EDIÇÃO E EXCLUSÃO ==========
 // Cada coleção editável: formulário, campos (propriedade -> id do input),
 // rótulo para mensagens e função que re-renderiza as telas afetadas.
@@ -1926,7 +2157,7 @@ const EDITABLE = {
         form: 'transaction-form', label: 'Lançamento',
         fields: { type: 'transaction-type', amount: 'transaction-amount', category: 'transaction-category', date: 'transaction-date', description: 'transaction-description' },
         name: t => `${t.category} — ${formatCurrency(t.amount)}`,
-        refresh: () => { updateTransactionsList(); updateDashboard(); }
+        refresh: () => { updateTransactionsList(); updateRecurringList(); updateDashboard(); }
     },
     budgets: {
         form: 'budget-form', label: 'Orçamento',
@@ -2108,6 +2339,11 @@ async function deleteRecord(collection, id) {
         DB[collection] = DB[collection].filter(x => x.id !== id);
         if (editing.collection === collection && editing.id === id) cancelEdit(collection);
 
+        // Lançamento de uma série fixa: este mês não é recriado.
+        if (collection === 'transactions' && item.seriesId) {
+            await skipRecurringMonth(item).catch(error => console.error(error));
+        }
+
         // Despesa gerada pelo pagamento de uma conta: a conta volta a ficar pendente.
         if (collection === 'transactions' && item.billId) {
             const bill = DB.monthlyBills.find(b => b.id === item.billId);
@@ -2182,6 +2418,8 @@ document.addEventListener('click', (e) => {
     else if (action === 'delete') deleteRecord(collection, id);
     else if (action === 'goal-add') addToGoal(id);
     else if (action === 'delete-category') deleteCategory(id);
+    else if (action === 'recurring-edit') editRecurringAmount(id);
+    else if (action === 'recurring-stop') stopRecurring(id);
 });
 
 // ========== FUNÇÕES AUXILIARES ==========

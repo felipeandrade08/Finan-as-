@@ -518,7 +518,9 @@ label.btn { cursor: pointer; }
 }
 .card.is-editing { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); scroll-margin-top: calc(var(--topbar-h) + 16px); }
 .card-title { font-size: var(--fs-17); font-weight: 650; margin-bottom: 16px; }
-.card-header-flex { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.card-header-flex { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 16px; }
+.card-header-flex .month-nav { margin-left: -8px; }
+@media (min-width: 601px) { .card-header-flex .month-nav { margin-left: 0; } }
 .card-header-flex .card-title { margin-bottom: 0; }
 .form-toggle { display: none; }
 .card-note { color: var(--text-muted); font-size: var(--fs-14); margin: -10px 0 14px; }
@@ -591,6 +593,14 @@ label.btn { cursor: pointer; }
 .transaction-amount.expense { color: var(--expense); }
 .bill-item .transaction-amount.expense { color: var(--text); }
 .bill-item .transaction-icon.expense { background: var(--surface-alt); color: var(--text-muted); }
+.card.is-editing .recurring-option { display: none; }
+.tag {
+  display: inline-block; margin-left: 6px; vertical-align: 1px;
+  font-size: 11px; font-weight: 600; line-height: 1.6;
+  color: var(--accent); background: var(--accent-soft);
+  padding: 0 7px; border-radius: var(--r-pill);
+}
+#recurring-list .mini-row { gap: 10px; }
 .tag-btn {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: var(--fs-12); font-weight: 600; color: var(--text-muted);
@@ -623,6 +633,12 @@ label.btn { cursor: pointer; }
 .budget-info, .goal-progress { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: var(--fs-14); color: var(--text-muted); }
 .goal-percentage { font-weight: 650; color: var(--text); }
 
+.budget-compare { margin-top: 4px; font-size: var(--fs-13); color: var(--text-faint); }
+.budget-compare span { font-weight: 600; }
+.month-nav { display: inline-flex; align-items: center; gap: 2px; }
+.month-label { min-width: 132px; text-align: center; font-size: var(--fs-14); font-weight: 600; }
+.month-label::first-letter { text-transform: uppercase; }
+.month-nav .icon-btn:disabled { opacity: .35; cursor: default; background: none; }
 .progress-bar { height: 8px; border-radius: var(--r-pill); background: var(--surface-alt); overflow: hidden; }
 .progress-fill { height: 100%; border-radius: inherit; background: var(--accent); transition: width 500ms var(--ease); }
 .progress-fill.success, .progress-fill.done { background: var(--income); }
