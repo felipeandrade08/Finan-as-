@@ -265,7 +265,13 @@ function exportToExcel() {
         XLSX.utils.book_append_sheet(wb, ws_budgets, 'Orçamentos');
         
         // ========== ABA 4: METAS ==========
-        const goalsData = [['Nome', 'Valor Alvo', 'Valor Atual', 'Falta', 'Progresso', 'Prazo']];
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const savedThisMonth = (g) => (g.deposits || [])
+            .filter(d => { const dt = parseLocalDate(d.date); return dt >= monthStart && dt <= monthEnd; })
+            .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+        const goalsData = [['Nome', 'Valor alvo', 'Valor guardado', 'Falta', 'Progresso', 'Prazo', `Guardado em ${currentMonthName()}`]];
         
         DB.goals.forEach(g => {
             const remaining = g.targetAmount - g.currentAmount;
@@ -275,7 +281,8 @@ function exportToExcel() {
                 xlsMoney(g.currentAmount),
                 xlsMoney(Math.max(remaining, 0)),
                 xlsPercent(g.currentAmount / g.targetAmount),
-                xlsDate(g.deadline)
+                xlsDate(g.deadline),
+                xlsMoney(savedThisMonth(g))
             ]);
         });
         

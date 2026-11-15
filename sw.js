@@ -2,7 +2,7 @@
 // FINCONTROL PRO - SERVICE WORKER
 // Atualize VERSION a cada publicação para renovar o cache.
 // =============================================
-const VERSION = 'fincontrol-v6.2.0';
+const VERSION = 'fincontrol-v6.3.0';
 const SHELL_CACHE = `${VERSION}-shell`;
 const CDN_CACHE = `${VERSION}-cdn`;
 

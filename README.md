@@ -11,7 +11,7 @@ O projeto reúne em um só lugar o acompanhamento de receitas, despesas, orçame
 - **Lançamentos fixos:** salário, aluguel e assinaturas criados automaticamente todo mês; cada mês pode ser editado ou excluído sem afetar os outros.
 - **Relatórios:** saldo acumulado, gastos por categoria e resultado de cada mês.
 - **Orçamentos:** limite mensal por categoria, contando só os gastos do mês (inclusive parcelas do cartão), com navegação pelos meses anteriores e comparação com a média dos 3 meses antes.
-- **Metas:** controle do progresso de objetivos financeiros, com registro do valor guardado.
+- **Metas:** progresso de cada objetivo, com depósitos e retiradas registrados por data. O que é guardado em metas aparece no Início separado dos gastos ("R$ X livres depois de guardar R$ Y nas metas") e não conta como despesa.
 - **Investimentos:** organização e visualização da carteira.
 - **Cartões:** compras parceladas; cada parcela entra nos gastos do mês em que vence.
 - **Contas:** contas recorrentes com alertas de vencimento; ao marcar como paga, a despesa é lançada automaticamente (e pode ser desfeita).
